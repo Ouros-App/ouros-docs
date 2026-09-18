@@ -1,0 +1,71 @@
+site_name: Ouros Docs
+site_description: Documentação técnica da plataforma Ouros
+site_url: https://ouros-app.github.io/ouros-docs/
+repo_name: Ouros-App/ouros-docs
+repo_url: https://github.com/Ouros-App/ouros-docs
+edit_uri: edit/main/docs/
+copyright: Ouros
+
+theme:
+  name: material
+  language: pt-BR
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.action.edit
+    - content.code.copy
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: Usar tema escuro
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: Usar tema claro
+
+plugins:
+  - search:
+      lang: pt
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+nav:
+  - Início: index.md
+  - Começando:
+      - Visão geral: getting-started/index.md
+  - Arquitetura:
+      - Visão geral: architecture/index.md
+  - APIs:
+      - Visão geral: apis/index.md
+  - Bancos de dados:
+      - Visão geral: databases/index.md
+  - Segurança:
+      - Visão geral: security/index.md
+  - Desenvolvimento:
+      - Visão geral: development/index.md
+      - Escrevendo documentação: development/writing-docs.md
