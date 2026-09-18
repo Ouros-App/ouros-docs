@@ -39,3 +39,13 @@ docs/
 ```
 
 Tudo que entra na `main` é publicado automaticamente no GitHub Pages.
+
+## Bootstrap do GitHub Pages
+
+O Pages precisa ser habilitado apenas uma vez no repositório, usando **GitHub Actions** como fonte de publicação. Depois disso, o workflow `Deploy Docs` cuida das publicações automaticamente.
+
+Com GitHub CLI e permissão de administração:
+
+```bash
+gh api --method POST repos/Ouros-App/ouros-docs/pages -f build_type=workflow
+```
