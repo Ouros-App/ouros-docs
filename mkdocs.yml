@@ -107,6 +107,7 @@ nav:
       - Visão geral: security/index.md
   - Operações:
       - Ambientes: operations/environments.md
+      - CI/CD e deploy: operations/cicd.md
       - Secrets: operations/secrets.md
       - Troubleshooting: operations/troubleshooting.md
   - Desenvolvimento:
