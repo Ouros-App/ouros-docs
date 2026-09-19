@@ -109,6 +109,7 @@ nav:
       - Auth Service: apis/auth-service-reference.md
       - Midas e MCP: apis/ai-mcp-reference.md
       - Telemetry: apis/telemetry-reference.md
+      - Keycloak clients e audiences: apis/keycloak-clients.md
       - Autenticação e identidade: apis/authentication.md
       - Exemplos: apis/examples.md
   - Bancos de dados:
