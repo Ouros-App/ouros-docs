@@ -64,6 +64,7 @@ nav:
   - Arquitetura:
       - Visão geral: architecture/index.md
       - Dependências: architecture/dependencies.md
+      - Decisões observadas: architecture/decisions.md
   - Repositórios:
       - Catálogo: repositories/index.md
       - Serviços:
@@ -110,9 +111,11 @@ nav:
       - Ambientes: operations/environments.md
       - CI/CD e deploy: operations/cicd.md
       - Configuração: operations/configuration.md
+      - Observabilidade: operations/observability.md
       - Impacto de mudanças: operations/change-impact.md
       - Secrets: operations/secrets.md
       - Troubleshooting: operations/troubleshooting.md
   - Desenvolvimento:
       - Visão geral: development/index.md
+      - Testes e qualidade: development/testing.md
       - Escrevendo documentação: development/writing-docs.md
