@@ -32,11 +32,17 @@ docs/
 ├── index.md
 ├── getting-started/
 ├── architecture/
+├── repositories/
 ├── apis/
 ├── databases/
 ├── security/
+├── operations/
+├── guides/
+├── runbooks/
 └── development/
 ```
+
+As páginas em `repositories/` documentam os repositórios da organização; `operations/` concentra operação e plataforma; `guides/` ensina mudanças comuns; `runbooks/` traz procedimentos de incidente.
 
 Tudo que entra na `main` é publicado automaticamente no GitHub Pages.
 

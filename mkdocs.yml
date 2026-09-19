@@ -43,6 +43,9 @@ markdown_extensions:
   - toc:
       permalink: true
   - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - pymdownx.highlight:
       anchor_linenums: true
   - pymdownx.inlinehilite
@@ -58,14 +61,87 @@ nav:
   - Início: index.md
   - Começando:
       - Visão geral: getting-started/index.md
+      - Glossário: getting-started/glossary.md
   - Arquitetura:
       - Visão geral: architecture/index.md
+      - Dependências: architecture/dependencies.md
+      - Fluxos de dados: architecture/data-flow.md
+      - Topologia de deploy: architecture/deployment-topology.md
+      - Decisões observadas: architecture/decisions.md
+      - Lacunas atuais: architecture/current-gaps.md
+  - Repositórios:
+      - Catálogo: repositories/index.md
+      - Serviços:
+          - Spring API: repositories/services/ms-spring-api.md
+          - Auth Service: repositories/services/ms-auth-service.md
+          - Keycloak: repositories/services/ouros-keycloak.md
+          - AI Server: repositories/services/ms-ai-server.md
+          - Knowledge MCP: repositories/services/ms-mcp-server-ouros-knowledge.md
+          - Knowledge MCP Code Mode: repositories/services/ms-mcp-server-ouros-knowledge-codemode.md
+          - Telemetry Dashboard: repositories/services/ms-telemetry-dashboard-service.md
+      - Dados:
+          - PostgreSQL Prod: repositories/data/postgres-segundo-prod-database.md
+          - PostgreSQL QA: repositories/data/postgres-segundo-qa-database.md
+          - Analytics DB: repositories/data/ouros-analytics-database.md
+          - MongoDB AI Prod: repositories/data/mongodb-ai-prod-database.md
+          - MongoDB AI QA: repositories/data/mongodb-ai-qa-database.md
+      - Clientes:
+          - Web: repositories/clients/ms-ouros-front-web.md
+          - Android: repositories/clients/ouros-android-app.md
+          - CRUD Primeiro Ano: repositories/clients/ouros-crud-primeiro.md
+      - Automação:
+          - GitHub Manager: repositories/automation/ms-github-manager.md
+          - Auto Review: repositories/automation/ouros-autoreview-app.md
+          - Discord Homelab Bot: repositories/automation/ms-discord-bot.md
+      - Plataforma:
+          - Perfil da organização: repositories/platform/github-profile.md
+          - Ouros Docs: repositories/platform/ouros-docs.md
+      - Templates:
+          - FastAPI: repositories/templates/ms-fastapi-template.md
+          - Spring Boot: repositories/templates/ms-spring-template.md
+          - Web React: repositories/templates/ms-webfront-template.md
+          - Android: repositories/templates/mobile-template.md
+          - PostgreSQL: repositories/templates/postgres-database-template.md
+          - MongoDB: repositories/templates/mongodb-database-template.md
   - APIs:
       - Visão geral: apis/index.md
+      - Spring API: apis/spring-api-reference.md
+      - Auth Service: apis/auth-service-reference.md
+      - Midas e MCP: apis/ai-mcp-reference.md
+      - Telemetry: apis/telemetry-reference.md
+      - Keycloak clients e audiences: apis/keycloak-clients.md
+      - Autenticação e identidade: apis/authentication.md
+      - Exemplos: apis/examples.md
   - Bancos de dados:
       - Visão geral: databases/index.md
+      - Modelo de domínio: databases/domain-schema.md
+      - Catálogo de migrations: databases/migrations-catalog.md
+      - Operação e diagnóstico: databases/operations.md
   - Segurança:
       - Visão geral: security/index.md
+      - Threat model: security/threat-model.md
+      - Classificação de dados: security/data-classification.md
+  - Operações:
+      - Ambientes: operations/environments.md
+      - CI/CD e deploy: operations/cicd.md
+      - Configuração: operations/configuration.md
+      - Dependências externas: operations/external-dependencies.md
+      - Observabilidade: operations/observability.md
+      - Impacto de mudanças: operations/change-impact.md
+      - Secrets: operations/secrets.md
+      - Troubleshooting: operations/troubleshooting.md
+  - Guias:
+      - Novo endpoint Spring: guides/new-spring-endpoint.md
+      - Nova tool Midas: guides/new-mcp-tool.md
+      - Nova API com Keycloak: guides/new-keycloak-api.md
+      - Mudança segura de banco: guides/safe-database-change.md
+  - Runbooks:
+      - Autenticação: runbooks/authentication.md
+      - Banco e migrations: runbooks/database-migrations.md
+      - Midas e MCP: runbooks/ai-mcp.md
+      - Telemetry e Databricks: runbooks/telemetry.md
   - Desenvolvimento:
       - Visão geral: development/index.md
+      - Desenvolvimento local: development/local-development.md
+      - Testes e qualidade: development/testing.md
       - Escrevendo documentação: development/writing-docs.md
