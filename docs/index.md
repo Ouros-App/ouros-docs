@@ -67,11 +67,27 @@ Este portal foi montado a partir do estado real dos repositórios da organizaç�
 
     [:octicons-arrow-right-24: Operações](operations/environments.md)
 
+-   :material-hammer-wrench:{ .lg .middle } **Guias**
+
+    ---
+
+    Passo a passo para endpoints, tools MCP, Keycloak e migrations seguras.
+
+    [:octicons-arrow-right-24: Guias](guides/new-spring-endpoint.md)
+
+-   :material-alert-decagram:{ .lg .middle } **Runbooks**
+
+    ---
+
+    Procedimentos de incidente para auth, bancos, Midas/MCP e Telemetry.
+
+    [:octicons-arrow-right-24: Runbooks](runbooks/authentication.md)
+
 -   :material-code-braces:{ .lg .middle } **Desenvolvimento**
 
     ---
 
-    PRs, migrations, templates e manutenção da própria documentação.
+    Setup local, testes, PRs, templates e manutenção da documentação.
 
     [:octicons-arrow-right-24: Desenvolvimento](development/index.md)
 

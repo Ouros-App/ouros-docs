@@ -43,6 +43,12 @@ mkdocs build --strict
 
 O mesmo build é executado no CI.
 
+Para disparar o CI manualmente, o workflow aceita `workflow_dispatch`:
+
+```bash
+gh workflow run ci-cd.yml -R Ouros-App/ouros-docs --ref <branch>
+```
+
 ## Publicação
 
 Push na `main` aciona o workflow de GitHub Pages.

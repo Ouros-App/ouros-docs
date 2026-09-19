@@ -60,6 +60,9 @@ http_request_duration_seconds
 databricks_requests_total
 ```
 
+!!! warning "Endpoint atualmente público"
+    No código analisado, `GET /metrics` do Telemetry não exige Bearer e não há middleware global de autenticação em `app/main.py`. Trate o endpoint como público enquanto esse contrato não mudar.
+
 O cliente Databricks também registra duração e erros específicos.
 
 ### Request ID

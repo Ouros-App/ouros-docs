@@ -261,7 +261,9 @@ cron: 17 4 * * 1
 
 Esse workflow atualiza badges/contribuidores e **não substitui CI funcional**.
 
-## `rerun-ci`
+## Reexecutando CI sem commit artificial
+
+### Label `rerun-ci`
 
 Vários workflows da organização escutam o evento `labeled` e executam novamente quando a label é:
 
@@ -269,7 +271,27 @@ Vários workflows da organização escutam o evento `labeled` e executam novamen
 rerun-ci
 ```
 
-Isso existe para reexecutar esteira sem precisar criar commit artificial.
+### `ouros-docs`: dispatch manual
+
+O workflow de CI do portal também aceita `workflow_dispatch`.
+
+Via GitHub CLI:
+
+```bash
+gh workflow run ci-cd.yml \
+  -R Ouros-App/ouros-docs \
+  --ref <branch>
+```
+
+Isso é útil quando um commit criado por integração/bot não gera `pull_request.synchronize`.
+
+Depois acompanhe:
+
+```bash
+gh run list -R Ouros-App/ouros-docs --branch <branch>
+```
+
+O dispatch manual executa `ci` e, após sucesso, `codeql`. O job de Conventional Commits é específico de eventos de pull request.
 
 ## Regras para novos repos
 
