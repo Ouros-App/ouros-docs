@@ -154,11 +154,14 @@ Não exponha query text contendo dados sensíveis em prints públicos.
 No `mongosh`, examine as coleções de controle:
 
 ```javascript
-db.controle_versoes.find().sort({ _id: -1 }).limit(10)
-db.controle_scripts_mongo.find().sort({ executado_em: -1 }).limit(20)
+db.controle_versoes.find().sort({ versao: -1 }).limit(10)
+db.controle_scripts_mongo.find(
+  {},
+  { arquivo: 1, checksum: 1, commit_id: 1, status: 1, next_command: 1 }
+).sort({ arquivo: 1 })
 ```
 
-Os campos exatos podem variar conforme evolução do executor; use `findOne()` para inspecionar shape antes de criar automação dependente dele.
+No executor atual, `controle_scripts_mongo` mantém `arquivo`, `checksum`, `commit_id`, `status` e `next_command`; ele não grava timestamp de execução. Use `findOne()` para confirmar o shape antes de criar automação dependente dele.
 
 ## MongoDB: índices
 
