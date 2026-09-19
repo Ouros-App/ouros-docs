@@ -31,7 +31,7 @@ Quando não pronto, a rota usa **503** e lista erros sanitizados.
 
 Prometheus.
 
-No código atual a função da rota não chama `require_bearer` diretamente; a política de exposição deve ser confirmada pelo middleware/config da versão implantada antes de publicar o endpoint fora da rede esperada.
+No código atual, `/metrics` **não exige Bearer**: a rota não usa `require_bearer` e `app/main.py` não adiciona middleware global de autenticação. Portanto, trate o endpoint como público enquanto esse contrato não mudar.
 
 ## GET `/v1/dashboards`
 
