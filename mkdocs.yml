@@ -67,6 +67,7 @@ nav:
       - Dependências: architecture/dependencies.md
       - Fluxos de dados: architecture/data-flow.md
       - Decisões observadas: architecture/decisions.md
+      - Lacunas atuais: architecture/current-gaps.md
   - Repositórios:
       - Catálogo: repositories/index.md
       - Serviços:
@@ -104,9 +105,11 @@ nav:
   - APIs:
       - Visão geral: apis/index.md
       - Autenticação e identidade: apis/authentication.md
+      - Exemplos: apis/examples.md
   - Bancos de dados:
       - Visão geral: databases/index.md
       - Modelo de domínio: databases/domain-schema.md
+      - Operação e diagnóstico: databases/operations.md
   - Segurança:
       - Visão geral: security/index.md
   - Operações:
