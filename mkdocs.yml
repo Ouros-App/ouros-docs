@@ -130,6 +130,11 @@ nav:
       - Impacto de mudanças: operations/change-impact.md
       - Secrets: operations/secrets.md
       - Troubleshooting: operations/troubleshooting.md
+  - Guias:
+      - Novo endpoint Spring: guides/new-spring-endpoint.md
+      - Nova tool Midas: guides/new-mcp-tool.md
+      - Nova API com Keycloak: guides/new-keycloak-api.md
+      - Mudança segura de banco: guides/safe-database-change.md
   - Runbooks:
       - Autenticação: runbooks/authentication.md
       - Banco e migrations: runbooks/database-migrations.md
