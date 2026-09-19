@@ -112,6 +112,8 @@ nav:
       - Operação e diagnóstico: databases/operations.md
   - Segurança:
       - Visão geral: security/index.md
+      - Threat model: security/threat-model.md
+      - Classificação de dados: security/data-classification.md
   - Operações:
       - Ambientes: operations/environments.md
       - CI/CD e deploy: operations/cicd.md
