@@ -37,10 +37,11 @@ docs/
 ├── databases/
 ├── security/
 ├── operations/
+├── runbooks/
 └── development/
 ```
 
-As páginas em `repositories/` documentam os repositórios da organização; `operations/` concentra ambientes, CI/CD, secrets e troubleshooting.
+As páginas em `repositories/` documentam os repositórios da organização; `operations/` concentra operação e plataforma; `runbooks/` traz procedimentos de incidente.
 
 Tudo que entra na `main` é publicado automaticamente no GitHub Pages.
 
