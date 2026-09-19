@@ -61,9 +61,11 @@ nav:
   - Início: index.md
   - Começando:
       - Visão geral: getting-started/index.md
+      - Glossário: getting-started/glossary.md
   - Arquitetura:
       - Visão geral: architecture/index.md
       - Dependências: architecture/dependencies.md
+      - Fluxos de dados: architecture/data-flow.md
       - Decisões observadas: architecture/decisions.md
   - Repositórios:
       - Catálogo: repositories/index.md
@@ -115,6 +117,11 @@ nav:
       - Impacto de mudanças: operations/change-impact.md
       - Secrets: operations/secrets.md
       - Troubleshooting: operations/troubleshooting.md
+  - Runbooks:
+      - Autenticação: runbooks/authentication.md
+      - Banco e migrations: runbooks/database-migrations.md
+      - Midas e MCP: runbooks/ai-mcp.md
+      - Telemetry e Databricks: runbooks/telemetry.md
   - Desenvolvimento:
       - Visão geral: development/index.md
       - Testes e qualidade: development/testing.md
