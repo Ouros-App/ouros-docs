@@ -161,6 +161,12 @@ Também há um token literal `internal` no payload de shutdown.
 
 `.github/profile/README.md` contém blocos de linguagens/repos ainda aguardando coleta automática.
 
+## README do Knowledge MCP diverge das tools atuais
+
+A tabela do README local descreve argumentos de importação que não aparecem na assinatura atual de `app/mcp_server.py`, incluindo confirmação explícita em nível de tool.
+
+A documentação central segue o código executável e registra essa diferença para evitar clientes construídos contra um contrato inexistente.
+
 ## Code Mode é experimento, não produção
 
 O fork `ms-mcp-server-ouros-knowledge-codemode` não possui todas as tools do MCP principal.
