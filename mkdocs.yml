@@ -87,6 +87,13 @@ nav:
       - Plataforma:
           - Perfil da organização: repositories/platform/github-profile.md
           - Ouros Docs: repositories/platform/ouros-docs.md
+      - Templates:
+          - FastAPI: repositories/templates/ms-fastapi-template.md
+          - Spring Boot: repositories/templates/ms-spring-template.md
+          - Web React: repositories/templates/ms-webfront-template.md
+          - Android: repositories/templates/mobile-template.md
+          - PostgreSQL: repositories/templates/postgres-database-template.md
+          - MongoDB: repositories/templates/mongodb-database-template.md
   - APIs:
       - Visão geral: apis/index.md
   - Bancos de dados:
