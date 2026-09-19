@@ -58,7 +58,7 @@ As permissões seguem least privilege:
 - build: leitura;
 - deploy: `pages: write` + `id-token: write`.
 
-O Pages precisa ser habilitado uma vez com source GitHub Actions.
+No snapshot de 19/09/2026, o GitHub reporta `has_pages: true`: Pages já está habilitado. O workflow `Deploy Docs` continua sendo a fonte de publicação.
 
 ## Política de merge
 

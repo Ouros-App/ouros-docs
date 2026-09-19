@@ -32,7 +32,7 @@ Esta página funciona como índice técnico. **Estado observado** descreve o que
 | --- | --- | --- | --- |
 | `ms-ouros-front-web` | React 19, TypeScript, Vite, Tailwind | scaffold avançado / integração pendente | Cliente web. |
 | `ouros-android-app` | Kotlin, XML, ViewBinding | scaffold / integração pendente | Cliente Android. |
-| `ouros-crud-primeiro` | não inferido da `main` atual | documentação mínima | CRUD educacional do primeiro ano. |
+| `ouros-crud-primeiro` | N/A (README-only) | documentação mínima | CRUD educacional do primeiro ano; a `main` atual contém apenas `README.md`. |
 
 ## Automação e plataforma
 

@@ -2,9 +2,11 @@
 
 **Repo:** [Ouros-App/ouros-crud-primeiro](https://github.com/Ouros-App/ouros-crud-primeiro)
 
+**Stack:** N/A no snapshot atual; a `main` é README-only.
+
 ## Estado observado
 
-Na branch `main` analisada, a árvore exposta contém apenas:
+Na branch `main` analisada em 19/09/2026, a árvore contém apenas:
 
 ```text
 README.md
@@ -19,7 +21,7 @@ CRUD do primeiro ano
 Por isso não é possível documentar de forma confiável arquitetura, endpoints, banco ou execução a partir da `main` atual.
 
 !!! note
-    O tamanho/histórico do repositório pode indicar código em outros commits ou branches, mas esta documentação não infere comportamento que não esteja presente na branch principal.
+    Esta página documenta somente a `main`. Histórico, branches ou PRs não são tratados como contrato oficial enquanto não fizerem parte da branch principal.
 
 ## Papel
 
