@@ -109,6 +109,7 @@ nav:
   - Operações:
       - Ambientes: operations/environments.md
       - CI/CD e deploy: operations/cicd.md
+      - Configuração: operations/configuration.md
       - Impacto de mudanças: operations/change-impact.md
       - Secrets: operations/secrets.md
       - Troubleshooting: operations/troubleshooting.md
