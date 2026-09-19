@@ -64,9 +64,10 @@ Campos incluem:
 ## QA: itens de uma execução
 
 ```sql
+-- Substitua 123 pelo ID real retornado em qa_reconciliation_runs.
 SELECT *
 FROM qa_reconciliation_items
-WHERE run_id = <run_id>
+WHERE run_id = 123
 ORDER BY attempted_at;
 ```
 

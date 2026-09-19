@@ -189,7 +189,7 @@ Isso gera explosão de cardinalidade e pode vazar identificadores.
 Ruim:
 
 ```text
-DATABASE_URL=postgres://admin:minha-senha@host/prod
+DATABASE_URL=postgres://<usuario>:<senha>@<host>/<database>
 ```
 
 Bom:
