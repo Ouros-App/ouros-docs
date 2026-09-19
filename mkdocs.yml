@@ -60,6 +60,16 @@ nav:
       - Visão geral: getting-started/index.md
   - Arquitetura:
       - Visão geral: architecture/index.md
+  - Repositórios:
+      - Catálogo: repositories/index.md
+      - Serviços:
+          - Spring API: repositories/services/ms-spring-api.md
+          - Auth Service: repositories/services/ms-auth-service.md
+          - Keycloak: repositories/services/ouros-keycloak.md
+          - AI Server: repositories/services/ms-ai-server.md
+          - Knowledge MCP: repositories/services/ms-mcp-server-ouros-knowledge.md
+          - Knowledge MCP Code Mode: repositories/services/ms-mcp-server-ouros-knowledge-codemode.md
+          - Telemetry Dashboard: repositories/services/ms-telemetry-dashboard-service.md
   - APIs:
       - Visão geral: apis/index.md
   - Bancos de dados:
