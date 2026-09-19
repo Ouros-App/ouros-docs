@@ -76,6 +76,17 @@ nav:
           - Analytics DB: repositories/data/ouros-analytics-database.md
           - MongoDB AI Prod: repositories/data/mongodb-ai-prod-database.md
           - MongoDB AI QA: repositories/data/mongodb-ai-qa-database.md
+      - Clientes:
+          - Web: repositories/clients/ms-ouros-front-web.md
+          - Android: repositories/clients/ouros-android-app.md
+          - CRUD Primeiro Ano: repositories/clients/ouros-crud-primeiro.md
+      - Automação:
+          - GitHub Manager: repositories/automation/ms-github-manager.md
+          - Auto Review: repositories/automation/ouros-autoreview-app.md
+          - Discord Homelab Bot: repositories/automation/ms-discord-bot.md
+      - Plataforma:
+          - Perfil da organização: repositories/platform/github-profile.md
+          - Ouros Docs: repositories/platform/ouros-docs.md
   - APIs:
       - Visão geral: apis/index.md
   - Bancos de dados:
