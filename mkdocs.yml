@@ -96,11 +96,16 @@ nav:
           - MongoDB: repositories/templates/mongodb-database-template.md
   - APIs:
       - Visão geral: apis/index.md
+      - Autenticação e identidade: apis/authentication.md
   - Bancos de dados:
       - Visão geral: databases/index.md
       - Modelo de domínio: databases/domain-schema.md
   - Segurança:
       - Visão geral: security/index.md
+  - Operações:
+      - Ambientes: operations/environments.md
+      - Secrets: operations/secrets.md
+      - Troubleshooting: operations/troubleshooting.md
   - Desenvolvimento:
       - Visão geral: development/index.md
       - Escrevendo documentação: development/writing-docs.md
