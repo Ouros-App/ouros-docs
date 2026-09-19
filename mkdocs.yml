@@ -70,10 +70,17 @@ nav:
           - Knowledge MCP: repositories/services/ms-mcp-server-ouros-knowledge.md
           - Knowledge MCP Code Mode: repositories/services/ms-mcp-server-ouros-knowledge-codemode.md
           - Telemetry Dashboard: repositories/services/ms-telemetry-dashboard-service.md
+      - Dados:
+          - PostgreSQL Prod: repositories/data/postgres-segundo-prod-database.md
+          - PostgreSQL QA: repositories/data/postgres-segundo-qa-database.md
+          - Analytics DB: repositories/data/ouros-analytics-database.md
+          - MongoDB AI Prod: repositories/data/mongodb-ai-prod-database.md
+          - MongoDB AI QA: repositories/data/mongodb-ai-qa-database.md
   - APIs:
       - Visão geral: apis/index.md
   - Bancos de dados:
       - Visão geral: databases/index.md
+      - Modelo de domínio: databases/domain-schema.md
   - Segurança:
       - Visão geral: security/index.md
   - Desenvolvimento:
