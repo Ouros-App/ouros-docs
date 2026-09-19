@@ -131,5 +131,6 @@ nav:
       - Telemetry e Databricks: runbooks/telemetry.md
   - Desenvolvimento:
       - Visão geral: development/index.md
+      - Desenvolvimento local: development/local-development.md
       - Testes e qualidade: development/testing.md
       - Escrevendo documentação: development/writing-docs.md
