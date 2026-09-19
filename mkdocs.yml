@@ -114,6 +114,7 @@ nav:
   - Bancos de dados:
       - Visão geral: databases/index.md
       - Modelo de domínio: databases/domain-schema.md
+      - Catálogo de migrations: databases/migrations-catalog.md
       - Operação e diagnóstico: databases/operations.md
   - Segurança:
       - Visão geral: security/index.md
