@@ -79,7 +79,7 @@ Este portal foi montado a partir do estado real dos repositórios da organizaç�
 
 ## Estado documentado
 
-Snapshot técnico analisado em **18 de setembro de 2026**.
+Snapshot técnico analisado em **19 de setembro de 2026**.
 
 A documentação registra também divergências importantes entre intenção e implementação, por exemplo:
 

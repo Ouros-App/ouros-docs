@@ -1,6 +1,6 @@
 # Catálogo de repositórios
 
-A organização `Ouros-App` possui **26 repositórios** no snapshot de 18/09/2026.
+A organização `Ouros-App` possui **26 repositórios** no snapshot de 19/09/2026.
 
 Esta seção documenta o papel técnico de cada um. A documentação central descreve o sistema; o README local continua útil para comandos específicos do próprio repo.
 

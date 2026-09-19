@@ -1,6 +1,6 @@
 # Arquitetura do Ouros
 
-Esta página descreve a arquitetura **observada nos repositórios da organização Ouros-App em 18/09/2026**. Ela diferencia o que já existe no código do que ainda é intenção de produto.
+Esta página descreve a arquitetura **observada nos repositórios da organização Ouros-App em 19/09/2026**. Ela diferencia o que já existe no código do que ainda é intenção de produto.
 
 !!! important "Fonte de verdade"
     Para comportamento executável, o código do serviço e os arquivos de infraestrutura têm prioridade sobre READMEs antigos. Alguns repositórios ainda possuem documentação local desatualizada.
