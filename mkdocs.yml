@@ -66,6 +66,7 @@ nav:
       - Visão geral: architecture/index.md
       - Dependências: architecture/dependencies.md
       - Fluxos de dados: architecture/data-flow.md
+      - Topologia de deploy: architecture/deployment-topology.md
       - Decisões observadas: architecture/decisions.md
       - Lacunas atuais: architecture/current-gaps.md
   - Repositórios:
@@ -118,6 +119,7 @@ nav:
       - Ambientes: operations/environments.md
       - CI/CD e deploy: operations/cicd.md
       - Configuração: operations/configuration.md
+      - Dependências externas: operations/external-dependencies.md
       - Observabilidade: operations/observability.md
       - Impacto de mudanças: operations/change-impact.md
       - Secrets: operations/secrets.md
