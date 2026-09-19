@@ -30,7 +30,7 @@ jobs:
           fetch-depth: 0
 
       - name: Report conventional commit warning
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
