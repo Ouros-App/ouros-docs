@@ -7,7 +7,12 @@ Referência baseada nos controllers e DTOs atuais de `ms-spring-api`.
 
 ## Autenticação
 
-Com exceção das rotas públicas de meta/login/OpenAPI, o serviço exige Bearer JWT do mecanismo legado atual.
+Com exceção das rotas públicas de meta/login/OpenAPI, o serviço exige um JWT legado enviado em `Authorization: Bearer <token>`.
+
+Esse JWT é assinado localmente com **HS256** usando `app.jwt.secret` e contém claims como `sub=email`, `id` e `role`.
+
+!!! warning "Token Keycloak ainda não é aceito aqui"
+    O access token retornado por `ms-auth-service /v1/auth/token` é emitido pelo Keycloak e **não é aceito pelo Spring API atual**. O `JwtUtil` do Spring valida apenas a assinatura HMAC configurada em `app.jwt.secret`; ele ainda não valida issuer/JWKS/audience do Keycloak. Enquanto essa migração não acontecer, use o token produzido pelas rotas de login legadas do próprio Spring para chamar os endpoints protegidos.
 
 Rotas públicas observadas:
 

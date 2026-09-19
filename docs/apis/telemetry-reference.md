@@ -4,7 +4,13 @@ Contrato atual de `ms-telemetry-dashboard-service`.
 
 ## Autenticação
 
-Rotas de negócio usam Bearer configurado pelo serviço.
+As rotas de negócio usam **token estático** configurado em `API_BEARER_TOKEN`, enviado como:
+
+```http
+Authorization: Bearer <api-bearer-token>
+```
+
+Esse mecanismo **não é JWT Keycloak** no código atual: o serviço não valida assinatura, issuer, JWKS nem audience. O resource server já existe no IaC do Keycloak, mas a migração da aplicação ainda não foi concluída.
 
 Meta/health/readiness/metrics têm tratamento próprio conforme a implementação.
 

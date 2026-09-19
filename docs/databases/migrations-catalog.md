@@ -73,7 +73,32 @@ Mantém auditoria por triggers para tabelas como payments, lots e farms, gravand
 
 Migration `once` aditiva. Adiciona `losts` e `cost` a lots e trata o typo histórico `first_acess` → `first_access` quando apenas a coluna antiga existe.
 
-Se as duas colunas existirem, a migration não escolhe automaticamente qual valor prevalece.
+Se as duas colunas existirem, a migration **conclui sem bloquear o apply** e mantém ambas intactas. Ela não copia valores, não remove a coluna antiga e não escolhe automaticamente qual valor prevalece.
+
+No schema e nos consumidores atuais, `first_access` é o nome canônico. Se as duas colunas coexistirem, faça a reconciliação antes de remover `first_acess`.
+
+Para localizar divergências:
+
+```sql
+SELECT
+    id,
+    first_acess,
+    first_access
+FROM farm_owners
+WHERE first_acess IS DISTINCT FROM first_access
+ORDER BY id;
+```
+
+Procedimento seguro:
+
+1. confirme se existem linhas divergentes;
+2. determine o valor correto usando a fonte de negócio/autoria adequada para cada caso;
+3. atualize **`first_access`**, que é o campo consumido pelo schema/API atuais;
+4. valide que não restam divergências;
+5. remova `first_acess` somente em uma migration `once` posterior, separada e revisada.
+
+!!! warning
+    O repositório atual não define um backfill global que copie cegamente `first_acess` para `first_access`. Se os valores divergirem, essa escolha é uma decisão de dados e exige revisão explícita; não use um `UPDATE` massivo automático apenas para eliminar a coluna legada.
 
 ## `atualiza_farms-chicken-left.sql`
 

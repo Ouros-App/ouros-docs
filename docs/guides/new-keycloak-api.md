@@ -34,12 +34,22 @@ No deploy/startup, confirme nos logs keycloak-iac:
 
 ## 5. Configurar a API
 
-Trust não secreto:
+Trust não secreto deve ser configurado por ambiente:
 
 ~~~text
-ISSUER=https://ouros-keycloak.discloud.app/realms/ouros
+ISSUER=<keycloak-issuer-do-ambiente>
 AUDIENCE=ms-reports-service
 ~~~
+
+Mapeamento observado no repositório:
+
+| Ambiente | Issuer |
+| --- | --- |
+| local/CI | `http://localhost:<porta>/realms/ouros` |
+| QA | não há issuer QA versionado/confirmado no snapshot atual; configure explicitamente no ambiente |
+| produção | `https://ouros-keycloak.discloud.app/realms/ouros` |
+
+Não reutilize silenciosamente o issuer de produção em QA/local. Se um futuro ambiente compartilhar o mesmo Keycloak, documente isso explicitamente no deploy.
 
 ## 6. Validar token
 
@@ -86,17 +96,23 @@ Claims ajudam no contexto, mas não substituem ownership de negócio quando uma 
 - role ausente;
 - recurso de outro usuário.
 
-## 11. Migração de Bearer legado
+## 11. Migração de mecanismo legado
+
+`Bearer` é apenas o esquema do cabeçalho HTTP. Um JWT Keycloak continua sendo enviado como `Authorization: Bearer <jwt>`.
+
+Se a API hoje usa um **token estático** ou outro mecanismo legado, migre assim:
 
 ~~~text
-aceitar JWT em paralelo
+aceitar JWT Keycloak em paralelo ao mecanismo legado
   ↓
 migrar clientes
   ↓
-observar
+observar tráfego e erros
   ↓
-remover Bearer antigo
+remover apenas o mecanismo legado
 ~~~
+
+Não remova o suporte ao cabeçalho `Authorization: Bearer`; remova a validação do token legado depois que os consumidores tiverem migrado.
 
 ## Checklist
 

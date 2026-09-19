@@ -77,7 +77,15 @@ Convenções observadas:
 - PATCH: 200;
 - DELETE: 204.
 
-O principal autenticado normalmente entra via AuthenticationPrincipal.
+O principal autenticado normalmente entra via `@AuthenticationPrincipal`, mantendo explícito o tipo usado pela aplicação:
+
+~~~java
+public ResponseEntity<?> exemplo(
+    @AuthenticationPrincipal UserPrincipal principal
+) {
+    // ...
+}
+~~~
 
 ## 8. Segurança
 
