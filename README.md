@@ -32,11 +32,15 @@ docs/
 ├── index.md
 ├── getting-started/
 ├── architecture/
+├── repositories/
 ├── apis/
 ├── databases/
 ├── security/
+├── operations/
 └── development/
 ```
+
+As páginas em `repositories/` documentam os repositórios da organização; `operations/` concentra ambientes, CI/CD, secrets e troubleshooting.
 
 Tudo que entra na `main` é publicado automaticamente no GitHub Pages.
 
