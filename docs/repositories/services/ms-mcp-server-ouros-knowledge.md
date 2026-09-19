@@ -4,6 +4,9 @@
 
 **Repo:** [Ouros-App/ms-mcp-server-ouros-knowledge](https://github.com/Ouros-App/ms-mcp-server-ouros-knowledge)
 
+!!! warning "README local e assinatura atual divergem"
+    O README do repo descreve parâmetros adicionais de identidade/confirmação em algumas tools de importação. No `app/mcp_server.py` da `main` analisada, `prepare_resource_import` recebe apenas `filename`, `content_type` e `encoded_file`, enquanto `import_user_resource_records` não expõe um parâmetro `confirmation`. Esta página documenta a assinatura executável atual.
+
 ## Responsabilidade
 
 Servidor MCP que une três funções:
