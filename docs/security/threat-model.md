@@ -99,9 +99,14 @@ Mitigações:
 - audience;
 - assinatura;
 - expiração;
-- `azp` para integrações internas.
+- `azp` para integrações internas;
+- separar explicitamente tokens estáticos, JWT Keycloak e JWT HS256 locais.
 
-Não valide apenas “JWT parseou”.
+No estado atual, o mesmo header `Authorization: Bearer` transporta credenciais **não intercambiáveis** entre Spring, AI, MCP e Telemetry.
+
+Não valide apenas “JWT parseou” e não reutilize um token em outro serviço só porque o esquema HTTP é Bearer.
+
+Veja [Compatibilidade de tokens](../apis/token-compatibility.md).
 
 ## Ameaça: IDOR / troca de identidade
 

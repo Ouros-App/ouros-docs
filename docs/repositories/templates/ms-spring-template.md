@@ -122,4 +122,4 @@ Não copie configurações entre ambos assumindo compatibilidade automática.
 
 ## Criação de novos serviços
 
-Se o serviço precisar do padrão moderno de identidade Ouros, prefira adicionar validação Keycloak/JWKS em vez de reproduzir o JWT legado do Spring API.
+Se o serviço precisar do padrão de identidade Ouros, use o `ms-spring-api` atual como referência: OAuth2 Resource Server, JWKS, issuer, audience e autorização por role/ownership.

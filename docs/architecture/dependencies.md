@@ -70,8 +70,10 @@ Linhas pontilhadas representam integração de produto esperada ou em evolução
 Depende diretamente de:
 
 - PostgreSQL;
-- configuração/secrets em runtime;
-- durante a migração, coexistência com a nova camada Keycloak/Auth.
+- PostgreSQL;
+- Keycloak/JWKS para validação de JWT;
+- Auth Service como upstream do fluxo first-party de login;
+- configuração/secrets em runtime.
 
 Não depende do AI Server para CRUD básico.
 

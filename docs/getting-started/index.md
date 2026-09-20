@@ -73,7 +73,7 @@ resource server
 
 Não implemente um novo emissor JWT dentro de cada API.
 
-O `ms-spring-api` ainda mantém login/JWT legado enquanto a migração acontece.
+O `ms-spring-api` já é um resource server Keycloak. Para o fluxo first-party, obtenha o access token em `ms-auth-service /v1/auth/token` e envie-o ao Spring como Bearer.
 
 Veja [Autenticação](../apis/authentication.md).
 

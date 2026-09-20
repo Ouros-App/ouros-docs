@@ -1,145 +1,138 @@
 # Autenticação e identidade
 
-A autenticação do Ouros está migrando de JWTs emitidos por serviços individuais para uma autoridade central baseada em Keycloak.
+## Estado atual
 
-## Componentes
+Keycloak já é o issuer central para o fluxo de domínio:
+
+```mermaid
+flowchart LR
+    CLIENT[Cliente] --> AUTH[ms-auth-service /v1/auth/token]
+    AUTH --> KC[Keycloak]
+    KC -->|JWT aud=ms-spring-api| AUTH
+    AUTH -->|access + refresh| CLIENT
+    CLIENT --> SPRING[ms-spring-api]
+    SPRING -->|JWKS + issuer + audience| KC
+```
+
+O PostgreSQL continua armazenando identidades/hashes legados, acessados pelo User Storage através do Auth Service.
+
+## Responsabilidades
 
 ### Keycloak
 
-Responsável por:
-
-- sessão;
-- access token;
-- refresh token;
+- access/refresh tokens;
 - roles;
 - audiences;
 - OIDC discovery;
-- JWKS.
+- JWKS;
+- clients/service accounts.
 
 ### Auth Service
 
-Responsável por:
+- lookup legado;
+- bcrypt;
+- rate limit;
+- User Storage bridge;
+- broker de login first-party.
 
-- lookup da identidade legada;
-- validação bcrypt;
-- rate limiting;
-- bridge de User Storage;
-- broker first-party de token.
+Não assina o JWT final.
 
-Ele não assina o JWT novo.
+### Spring API
 
-### Banco legado
+Já é OAuth2 Resource Server.
 
-Ainda armazena:
+Valida:
 
-- identidades;
-- hashes de senha;
-- IDs de negócio.
+- JWKS;
+- issuer;
+- timestamps;
+- `aud=ms-spring-api`;
+- role reconhecida.
 
-## Fluxo first-party via broker
+Não possui mais endpoints locais de login na `main` atual.
+
+## Login first-party
 
 ```mermaid
 sequenceDiagram
     participant C as Client
-    participant A as ms-auth-service
+    participant A as Auth
     participant K as Keycloak
     participant P as PostgreSQL
 
     C->>A: POST /v1/auth/token
-    A->>K: token request
+    A->>K: password grant (broker)
     K->>A: User Storage lookup/verify
-    A->>P: read identity + bcrypt
+    A->>P: identity + bcrypt
     P-->>A: identity
     A-->>K: valid
-    K-->>A: access/refresh
-    A-->>C: Keycloak tokens
+    K-->>A: JWT/refresh
+    A-->>C: tokens
 ```
 
-## Fluxo browser/mobile OIDC
+O broker solicita `openid ouros-identity` e possui audience `ms-spring-api`.
 
-A infraestrutura Keycloak suporta clients:
-
-- `mobile`: Authorization Code + PKCE S256;
-- `web`: Authorization Code + PKCE S256;
-- `service`: Client Credentials;
-- `microservice`: resource server/audience.
-
-## Claims
-
-Não misture os conceitos:
+## Claims principais
 
 | Claim | Significado |
 | --- | --- |
-| `sub` | sujeito de autenticação do Keycloak |
-| `database_id` | ID da linha legada |
-| `account_type` | tipo de conta |
-| `farm_id` | vínculo de fazenda, quando aplicável |
-| `enterprise_id` | vínculo empresarial |
-| `realm_access.roles` | autorização por role |
-| `aud` | resource server(s) destino |
+| `sub` | ID Keycloak |
+| `database_id` | ID local no banco legado |
+| `account_type` | tipo da conta |
+| `farm_id` | vínculo de fazenda |
+| `enterprise_id` | vínculo de empresa |
+| `first_access` | estado de primeiro acesso |
+| `realm_access.roles` | roles do realm |
+| `resource_access` | roles por client |
+| `aud` | resource server destinatário |
 
-## Validação em APIs
+Não trate `sub` e `database_id` como equivalentes.
 
-Resource server deve validar:
+## Roles aceitas pelo Spring
 
-1. algoritmo/assinatura;
-2. JWKS;
-3. `iss`;
-4. `exp`;
-5. `aud`;
-6. roles/claims exigidos para a ação.
+Mapeamento:
 
-**Decodificar JWT não é validar JWT.**
+```text
+ADMIN / ADM → ADM
+COMPANY_EMPLOYEE → COMPANY_EMPLOYEE
+FARM_OWNER → FARM_OWNER
+```
+
+O Spring aceita role de realm, resource client ou claim simples `role`.
 
 ## Service-to-service
 
-Use Client Credentials para identidade de máquina.
+O User Storage chama Auth interno com service JWT.
 
-Não reutilize senha de usuário para integração backend.
+Contrato:
 
-Exemplo: Keycloak User Storage chama o Auth Service com service JWT cujo:
+- audience `ms-auth-service-internal`;
+- client `keycloak-user-storage`.
 
-- issuer é conhecido;
-- audience é `ms-auth-service-internal`;
-- `azp` é o client esperado.
+Senha de usuário nunca deve ser reutilizada como credencial de serviço.
 
-## Spring API legado
+## Outros mecanismos ainda existentes
 
-O `ms-spring-api` ainda possui logins:
+A migração de identidade não está uniforme em todo o ecossistema:
 
-- `/adms/login`;
-- `/company-employees/login`;
-- `/farm-owners/login`.
+- Telemetry: Bearer estático;
+- Knowledge MCP: Bearer estático;
+- AI Server: Bearer compartilhado ou JWT HS256 local.
 
-Eles pertencem ao caminho legado durante a migração. Novos serviços não devem copiá-los como padrão arquitetural.
+Esses mecanismos são contratos atuais, mas não devem ser copiados como padrão de novos resource servers.
 
-## Frontend web
+## Browser/mobile
 
-O frontend atual ainda usa login demo. Para implementação real:
+O IaC suporta:
 
-- preferir BFF/cookie HttpOnly quando essa arquitetura for adotada;
-- ou fluxo OIDC seguro;
-- não guardar refresh token em localStorage;
-- não considerar `PrivateRoute` autorização.
+- web: Authorization Code + PKCE;
+- mobile: Authorization Code + PKCE.
 
-## Android
+No snapshot atual, clients web/mobile ativos ainda não aparecem em `iac/resources/`; existem exemplos/suporte no reconciliador.
 
-Tokens precisam ficar em armazenamento seguro da plataforma, por exemplo mecanismos apoiados no Android Keystore.
+## OIDC
 
-## Logout/revogação
-
-O modelo completo deve considerar:
-
-- sessão Keycloak;
-- refresh token;
-- access token curto;
-- revogação/expiração.
-
-Não basta apagar um objeto JavaScript ou fechar Activity.
-
-## Endpoints OIDC
-
-Issuer:
+Issuer produção:
 
 ```text
 https://ouros-keycloak.discloud.app/realms/ouros

@@ -43,6 +43,18 @@ Resource servers devem validar assinatura, `iss`, `exp` e `aud`.
 
 Arquivos em `iac/resources/*.conf` são reconciliados no startup.
 
+Resources ativos observados:
+
+```text
+keycloak-user-storage
+ms-auth-service-broker
+ms-auth-service-internal
+ms-spring-api
+ms-telemetry-dashboard-service
+```
+
+O `ms-auth-service-broker` recebe audience `ms-spring-api`, ligando o login first-party ao resource server de domínio.
+
 ### `microservice`
 
 Resource server. Não possui login interativo. Gera audience scope e mapper.

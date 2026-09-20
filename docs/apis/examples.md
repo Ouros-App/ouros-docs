@@ -1,219 +1,157 @@
 # Exemplos de API
 
-Exemplos usam placeholders e não contêm credenciais reais.
+Exemplos seguros com placeholders.
 
-## Variáveis shell
+## Ambiente
 
 ```bash
 export AUTH_URL="https://ms-auth-service.discloud.app"
 export KEYCLOAK_ISSUER="https://ouros-keycloak.discloud.app/realms/ouros"
-export AI_URL="https://ms-ai-server.discloud.app"
 export SPRING_URL="<spring-api-url>"
+export AI_URL="<ai-server-url>"
 export TELEMETRY_URL="<telemetry-url>"
-export ACCESS_TOKEN="<access-token>"
 ```
 
-## Keycloak discovery
+## Descobrir OIDC
 
 ```bash
-curl -fsS "$KEYCLOAK_ISSUER/.well-known/openid-configuration"
+curl -fsS "$KEYCLOAK_ISSUER/.well-known/openid-configuration" | jq
 ```
 
-JWKS:
+## Login → Spring API
+
+Obter token sem colocar a senha nos argumentos do `curl`:
 
 ```bash
-curl -fsS "$KEYCLOAK_ISSUER/protocol/openid-connect/certs"
+read -r -p "Email: " OUROS_EMAIL
+read -r -s -p "Senha: " OUROS_PASSWORD
+printf '\n'
+
+ACCESS_TOKEN="$(
+  jq -n \
+    --arg email "$OUROS_EMAIL" \
+    --arg password "$OUROS_PASSWORD" \
+    '{email:$email,password:$password}' |
+  curl -fsS "$AUTH_URL/v1/auth/token" \
+    -H 'content-type: application/json' \
+    --data-binary @- |
+  jq -r .access_token
+)"
+
+unset OUROS_PASSWORD
 ```
 
-## Login first-party
+Chamar Spring:
 
 ```bash
-curl -sS "$AUTH_URL/v1/auth/token" \
-  -H 'content-type: application/json' \
-  --data-binary '{
-    "email": "usuario@example.com",
-    "password": "<senha>"
-  }'
+curl -fsS "$SPRING_URL/farms" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" |
+  jq
 ```
 
-Resposta esperada contém access token emitido pelo Keycloak.
+O broker atual possui audience `ms-spring-api`.
 
-Nunca coloque senha real em histórico de shell compartilhado ou documentação.
-
-## Verificar credencial
+## Criar registro de energia
 
 ```bash
-curl -sS "$AUTH_URL/v1/auth/credentials/verify" \
-  -H 'content-type: application/json' \
-  --data-binary '{
-    "email": "usuario@example.com",
-    "password": "<senha>",
-    "account_type": "farm_owner"
-  }'
+curl -fsS "$SPRING_URL/energy-registries"   -X POST   -H "Authorization: Bearer $ACCESS_TOKEN"   -H 'content-type: application/json'   --data-binary '{
+    "registration_date": "2026-09-19",
+    "energy_consumption": 450.75,
+    "id_farm": 1
+  }' | jq
 ```
 
-## Readiness do Auth
+Para `farm_owner`, `id_farm` pode ser omitido e o backend usa a fazenda vinculada.
+
+## Auth readiness
 
 ```bash
 curl -i "$AUTH_URL/ready"
 ```
 
-Interpretação:
-
-- 200: dependências prontas;
-- 503: processo vivo, mas dependência/config não pronta.
-
-## Chat Midas
+## Verificar credencial sem emitir token
 
 ```bash
-curl -sS "$AI_URL/v1/chat" \
-  -H "authorization: Bearer $ACCESS_TOKEN" \
+read -r -p "Email: " OUROS_EMAIL
+read -r -s -p "Senha: " OUROS_PASSWORD
+printf '\n'
+
+jq -n \
+  --arg email "$OUROS_EMAIL" \
+  --arg password "$OUROS_PASSWORD" \
+  '{email:$email,password:$password,account_type:"farm_owner"}' |
+curl -fsS "$AUTH_URL/v1/auth/credentials/verify" \
   -H 'content-type: application/json' \
-  --data-binary '{
-    "user_id": "42",
-    "message": "Como está meu consumo de energia?",
-    "thread_id": "exemplo-thread-001"
-  }'
+  --data-binary @- |
+jq
+
+unset OUROS_PASSWORD
 ```
 
-Resposta contém:
+## AI Server
 
-- `thread_id`;
-- `message`;
-- `agents`;
-- `tools`.
-
-## Histórico do Midas
+O token depende da configuração do próprio AI Server e **não deve ser assumido como o mesmo token Keycloak do Spring**.
 
 ```bash
-curl -sS "$AI_URL/v1/chat/exemplo-thread-001/history" \
-  -H "authorization: Bearer $ACCESS_TOKEN"
+export AI_TOKEN="<token-aceito-pelo-ai-server>"
+
+curl -fsS "$AI_URL/v1/chat"   -H "Authorization: Bearer $AI_TOKEN"   -H 'content-type: application/json'   --data-binary '{
+    "user_id":"42",
+    "message":"Como está meu consumo de energia?"
+  }' | jq
 ```
 
-A thread precisa pertencer ao usuário autenticado.
-
-## Métricas do AI Server
+## Histórico Midas
 
 ```bash
-curl -sS "$AI_URL/metrics" \
-  -H "authorization: Bearer $ACCESS_TOKEN"
+curl -fsS   "$AI_URL/v1/chat/<thread-id>/history?user_id=42&limit=20"   -H "Authorization: Bearer $AI_TOKEN" | jq
 ```
 
-## Spring API: health
+## Telemetry
 
 ```bash
-curl -i "$SPRING_URL/health"
+export TELEMETRY_TOKEN="<API_BEARER_TOKEN>"
+
+curl -fsS "$TELEMETRY_URL/v1/dashboards"   -H "Authorization: Bearer $TELEMETRY_TOKEN" | jq
 ```
 
-## Spring API: recurso autenticado
+Esse token é estático no contrato atual, não JWT Keycloak.
 
-Exemplo genérico de leitura:
+PNG:
 
 ```bash
-curl -sS "$SPRING_URL/farms" \
-  -H "authorization: Bearer $ACCESS_TOKEN"
+curl -fsS   "$TELEMETRY_URL/v1/dashboards/<dashboard-id>/charts/<chart-id>/png"   -H "Authorization: Bearer $TELEMETRY_TOKEN"   -o chart.png
 ```
 
-!!! note
-    O Spring API ainda pode usar JWT legado durante a migração. Use o token esperado pelo ambiente específico.
-
-## Telemetry: readiness
-
-```bash
-curl -i "$TELEMETRY_URL/ready"
-```
-
-## Telemetry: listar dashboards
-
-```bash
-curl -sS "$TELEMETRY_URL/v1/dashboards" \
-  -H "authorization: Bearer $ACCESS_TOKEN"
-```
-
-No serviço atual, o Bearer pode ser token estático de API, não necessariamente JWT Keycloak.
-
-## Telemetry: listar charts
-
-```bash
-curl -sS "$TELEMETRY_URL/v1/dashboards/<dashboard-id>/charts" \
-  -H "authorization: Bearer $ACCESS_TOKEN"
-```
-
-## Telemetry: PNG
-
-```bash
-curl -fsS "$TELEMETRY_URL/v1/dashboards/<dashboard-id>/charts/<chart-id>/png" \
-  -H "authorization: Bearer $ACCESS_TOKEN" \
-  -o chart.png
-```
-
-## Telemetry: request ID
-
-```bash
-curl -i "$TELEMETRY_URL/health" \
-  -H 'X-Request-ID: debug-123'
-```
-
-Use o mesmo ID ao procurar logs.
-
-## Knowledge MCP: health
-
-Base pública observada como exemplo:
+## Knowledge MCP health
 
 ```bash
 export MCP_URL="https://ms-midas-mcp.discloud.app"
-curl -i "$MCP_URL/health"
+curl -fsS "$MCP_URL/health" | jq
 ```
 
-O endpoint MCP em si usa protocolo MCP Streamable HTTP e autenticação específica; não trate uma chamada `curl` simples como substituto do cliente MCP.
+Chamadas em `/mcp/` exigem cliente MCP e `Authorization: Bearer <MCP_AUTH_TOKEN>`.
 
-## GitHub Manager local
+## Diagnóstico HTTP
 
-Login:
+Status + body:
 
 ```bash
-curl -i http://localhost:8000/auth/login \
-  -H 'content-type: application/json' \
-  --data-binary '{
-    "username": "admin",
-    "password": "<senha>"
-  }' \
-  -c cookies.txt
+code="$(
+  curl -sS -o /tmp/ouros-response.json -w '%{http_code}'     "$SPRING_URL/farms"     -H "Authorization: Bearer $ACCESS_TOKEN"
+)"
+printf 'HTTP %s
+' "$code"
+jq . /tmp/ouros-response.json 2>/dev/null || cat /tmp/ouros-response.json
 ```
 
-Listar templates com sessão:
+## Regra de segurança
 
-```bash
-curl -sS http://localhost:8000/templates -b cookies.txt
-```
-
-## Dicas de diagnóstico
-
-Adicionar verbosidade:
-
-```bash
-curl -v ...
-```
-
-Ver apenas headers:
-
-```bash
-curl -I ...
-```
-
-Preservar status sem falhar o shell:
-
-```bash
-curl -sS -o response.json -w '%{http_code}\n' ...
-```
-
-## Segurança nos exemplos
-
-Nunca cole em issue/PR:
+Nunca cole em docs/issues/PRs:
 
 - access token real;
 - refresh token;
-- senha;
+- password;
 - API key;
 - cookie de sessão;
 - private key.

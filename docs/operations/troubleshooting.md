@@ -11,15 +11,26 @@ Exemplos:
 
 ## 401
 
-Perguntas:
+Primeiro identifique **qual mecanismo aquele serviço usa**.
 
-1. token foi enviado?
-2. issuer correto?
-3. expirou?
-4. audience contém o serviço?
+### Spring API
+
+Cheque:
+
+1. Bearer foi enviado?
+2. issuer é o Keycloak correto?
+3. token expirou?
+4. `aud` contém `ms-spring-api`?
 5. assinatura/JWKS válidos?
-6. endpoint ainda usa JWT legado ou Keycloak?
-7. Bearer estático é esperado naquele serviço?
+6. token contém uma role reconhecida?
+
+### AI Server
+
+Cheque se o ambiente espera Bearer compartilhado ou JWT HS256 local. Não assuma JWKS Keycloak.
+
+### Telemetry / Knowledge MCP
+
+Cheque o token estático configurado. Esses serviços ainda não validam JWT Keycloak no contrato atual.
 
 ## 403
 
@@ -47,12 +58,16 @@ Cheque OAuth, permissões do service principal, workspace e SQL Warehouse.
 Cheque:
 
 - `MCP_URL`;
-- token/JWT MCP;
-- `MCP_RESOURCE_URL`;
+- `MCP_ACCESS_TOKEN` no AI Server;
+- `MCP_AUTH_TOKEN` no Knowledge MCP;
+- os dois tokens precisam ser exatamente iguais no contrato atual;
 - identidade numérica;
 - allowlist do agente;
 - `MIDAS_DATABASE_URL`;
 - ownership da farm.
+
+!!! warning
+    O Knowledge MCP atual não aceita JWT MCP. O caminho `MCP_JWT_SECRET` do AI Server só deve ser usado quando o MCP ganhar verifier JWT compatível.
 
 ## Midas responde sem IA
 

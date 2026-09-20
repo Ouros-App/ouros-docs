@@ -4,7 +4,7 @@ Esta página não é um conjunto de leis eternas. É um registro das decisões q
 
 ## 1. Keycloak como issuer central
 
-**Estado:** em adoção/migração.
+**Estado:** adotado pelo fluxo de domínio; outros serviços ainda estão em migração.
 
 Decisão observada:
 
@@ -18,9 +18,12 @@ Motivo técnico:
 - JWKS padrão;
 - menos duplicação de auth.
 
-Compatibilidade:
+Estado observado:
 
-- Spring API ainda mantém JWT legado durante a transição.
+- Spring API já valida JWT Keycloak por JWKS, issuer e audience;
+- Auth Service faz o broker de login e não emite JWT próprio;
+- Telemetry e Knowledge MCP ainda usam Bearer estático;
+- AI Server mantém autenticação própria por Bearer/JWT HS256.
 
 ## 2. Credenciais legadas continuam no banco de negócio
 
@@ -181,9 +184,9 @@ A documentação central deve registrar divergências sem reescrever silenciosam
 
 ## 15. Alguns mecanismos de auth ainda são transitórios
 
-Existem Bearers estáticos em componentes como Telemetry/MCP e JWT legado no Spring.
+Existem Bearers estáticos em componentes como Telemetry/MCP e autenticação HS256 própria no AI Server.
 
-Eles devem ser tratados como estado atual, não necessariamente destino arquitetural final.
+Eles devem ser tratados como contratos atuais, não como o padrão de novos resource servers. O Spring já demonstra o caminho Keycloak/JWKS/audience adotado para APIs de domínio.
 
 Qualquer migração deve ser compatível e planejada, não uma troca instantânea.
 

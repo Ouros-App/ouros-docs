@@ -14,7 +14,7 @@ O reconciliador reconhece cinco tipos:
 | `microservice` | resource server | audience/scope para API |
 | `password-broker` | bridge first-party do Auth Service | confidential + direct access grant controlado |
 
-Implicit Flow fica desabilitado no reconciliador.
+Implicit Flow fica desabilitado.
 
 ## Resources realmente versionados hoje
 
@@ -24,12 +24,25 @@ Em `iac/resources/`:
 keycloak-user-storage.conf
 ms-auth-service-broker.conf
 ms-auth-service-internal.conf
+ms-spring-api.conf
 ms-telemetry-dashboard-service.conf
 ```
 
-Não existem hoje, nessa pasta, clients reais `ouros-mobile` ou `ouros-web`; eles aparecem apenas como exemplos em `iac/examples/`.
+Mobile/web aparecem como tipos suportados e exemplos, mas não como resource files ativos no snapshot atual.
 
-Isso é importante para não confundir “tipo suportado pelo IaC” com “client já provisionado”.
+Isso evita confundir:
+
+> “o IaC sabe criar” com “o client já existe em produção”.
+
+## Matriz atual
+
+| Client | Tipo | Audience(s) | Uso |
+| --- | --- | --- | --- |
+| `keycloak-user-storage` | service | `ms-auth-service-internal` | chama Auth interno |
+| `ms-auth-service-broker` | password-broker | `ms-spring-api` | login first-party e token para Spring |
+| `ms-auth-service-internal` | microservice | `ms-auth-service-internal` | resource server do Auth interno |
+| `ms-spring-api` | microservice | `ms-spring-api` | resource server de domínio |
+| `ms-telemetry-dashboard-service` | microservice | `ms-telemetry-dashboard-service` | resource preparado para Telemetry |
 
 ## `keycloak-user-storage`
 
@@ -45,19 +58,19 @@ Papel:
 
 - identidade machine-to-machine do provider User Storage;
 - obtém token via Client Credentials;
-- chama as rotas internas do Auth Service;
+- chama `/internal/v1/**` no Auth Service;
 - access token inclui audience `ms-auth-service-internal`.
 
 O secret é gerado pelo Keycloak e injetado no componente User Storage pelo reconciliador.
 
 ## `ms-auth-service-broker`
 
-Config:
+Config atual:
 
 ```text
 CLIENT_TYPE=password-broker
 CLIENT_ID=ms-auth-service-broker
-AUDIENCES=
+AUDIENCES=ms-spring-api
 ```
 
 Papel:
@@ -65,9 +78,24 @@ Papel:
 - usado somente pelo `ms-auth-service`;
 - recebe credenciais first-party;
 - pede token ao Keycloak;
+- produz access token com audience aceita pelo Spring;
 - secret fica no secret management do Auth Service.
 
-Este client existe para o fluxo de migração/bridge. Não é um client que browser/mobile devam conhecer diretamente.
+Fluxo:
+
+```text
+POST /v1/auth/token
+      ↓
+ms-auth-service-broker
+      ↓
+Keycloak
+      ↓
+aud=ms-spring-api
+      ↓
+ms-spring-api
+```
+
+Browser/mobile não devem conhecer o client secret desse broker.
 
 ## `ms-auth-service-internal`
 
@@ -89,11 +117,32 @@ O audience mapper adiciona:
 aud = ms-auth-service-internal
 ```
 
-ao access token quando o scope correspondente é anexado.
+ao access token dos consumidores aos quais o scope foi anexado.
+
+## `ms-spring-api`
+
+Config:
+
+```text
+CLIENT_TYPE=microservice
+CLIENT_ID=ms-spring-api
+AUDIENCE=ms-spring-api
+SCOPE_NAME=ms-spring-api-audience
+MAPPER_NAME=ms-spring-api-audience
+```
+
+O Spring atual valida:
+
+- assinatura JWKS;
+- issuer;
+- timestamps;
+- `aud=ms-spring-api`.
+
+O código usa `AudienceValidator` além dos validators padrão do Spring Security.
 
 ## `ms-telemetry-dashboard-service`
 
-Config atual:
+Config:
 
 ```text
 CLIENT_TYPE=microservice
@@ -105,14 +154,12 @@ MAPPER_NAME=ms-telemetry-dashboard-audience
 
 Isso prepara o Keycloak para emitir tokens destinados ao Telemetry.
 
-!!! note "Migração ainda incompleta"
-    O Telemetry atual ainda autentica rotas de negócio por Bearer estático. O resource server já existe no IaC, mas o serviço ainda não valida JWT/audience Keycloak no código analisado.
+!!! note "Migração da aplicação ainda incompleta"
+    O Telemetry atual autentica rotas de negócio por `API_BEARER_TOKEN` estático. Ter o resource server no IaC não significa que o código já valide JWT Keycloak.
 
 ## Exemplos suportados pelo IaC
 
 ### Mobile
-
-Exemplo versionado:
 
 ```text
 CLIENT_TYPE=mobile
@@ -127,11 +174,9 @@ Características:
 - sem client secret;
 - Authorization Code;
 - PKCE S256;
-- redirect URI custom scheme.
+- redirect URI controlado pelo app.
 
 ### Web
-
-Exemplo:
 
 ```text
 CLIENT_TYPE=web
@@ -149,8 +194,6 @@ Características:
 
 ### Service
 
-Exemplo:
-
 ```text
 CLIENT_TYPE=service
 CLIENT_ID=ouros-worker
@@ -165,8 +208,6 @@ Uso:
 
 ### Microservice
 
-Exemplo:
-
 ```text
 CLIENT_TYPE=microservice
 CLIENT_ID=ms-example-api
@@ -175,7 +216,7 @@ SCOPE_NAME=ms-example-api-audience
 MAPPER_NAME=ms-example-api-audience
 ```
 
-Não é login interativo. É o recurso que deve aparecer em `aud`.
+Não é login interativo. Representa o recurso que deve aparecer em `aud`.
 
 ## Audience scopes
 
@@ -185,14 +226,14 @@ O reconciliador cria client scope e mapper do tipo:
 oidc-audience-mapper
 ```
 
-Configuração observada:
+Comportamento observado:
 
 - inclui audience no access token;
 - não inclui no ID token;
 - inclui em introspection;
 - mantém mapper idempotente por nome.
 
-## Identity scope
+## `ouros-identity`
 
 O reconciliador mantém o client scope:
 
@@ -200,9 +241,7 @@ O reconciliador mantém o client scope:
 ouros-identity
 ```
 
-Ele cria mappers de atributos de usuário para claims do domínio.
-
-Claims documentados pelo projeto:
+Claims de domínio:
 
 - `database_id`;
 - `account_type`;
@@ -210,11 +249,13 @@ Claims documentados pelo projeto:
 - `enterprise_id`;
 - `first_access`.
 
-Esses claims vão no access token e podem aparecer em userinfo/introspection conforme o mapper.
+`database_id` é especialmente importante para o Spring, porque pode evitar lookup local por email na conversão do principal.
+
+Claims ajudam no contexto, mas não substituem authorization/ownership de negócio.
 
 ## User Storage
 
-Config real:
+Config observada:
 
 ```text
 NAME=ouros-auth-service
@@ -226,15 +267,15 @@ PRIORITY=0
 CACHE_POLICY=NO_CACHE
 ```
 
-### Por que TOKEN_URL é localhost?
+### Por que `TOKEN_URL` usa localhost?
 
-O reconciliador roda dentro do container do Keycloak e pede o service token diretamente ao próprio Keycloak em:
+O reconciliador/provider roda junto do Keycloak e pede o service token diretamente ao runtime local:
 
 ```text
 127.0.0.1:8080
 ```
 
-Isso evita depender da rota pública para uma chamada interna do mesmo processo/runtime.
+Isso evita uma ida pela rota pública para falar com o próprio Keycloak.
 
 ### Cache
 
@@ -242,17 +283,13 @@ Isso evita depender da rota pública para uma chamada interna do mesmo processo/
 NO_CACHE
 ```
 
-O provider consulta a fonte federada em vez de manter uma cópia duradoura da identidade legada no Keycloak.
+O provider consulta a fonte federada em vez de manter cópia duradoura da identidade legada.
 
-### Import
+### Importação de usuário
 
-```text
-importEnabled=false
-```
+O fluxo federado é read-only. O hash legado continua no PostgreSQL e a validação de password é delegada ao Auth Service.
 
-O usuário permanece federado. Keycloak não importa silenciosamente a identidade para virar owner das credenciais.
-
-## Como o secret do User Storage chega ao provider
+## Como o secret chega ao provider
 
 ```mermaid
 sequenceDiagram
@@ -264,32 +301,25 @@ sequenceDiagram
     I->>K: resolve client UUID
     I->>K: GET client-secret
     K-->>I: secret
-    I->>I: cria arquivo temporário com umask 077
+    I->>I: arquivo temporário + umask 077
     I->>K: create/update component
-    I->>I: apaga arquivo e unset secret
+    I->>I: cleanup + unset
 ```
-
-O script:
-
-- cria arquivo temporário sob `/tmp/keycloak-iac`;
-- usa `umask 077`;
-- remove o arquivo no cleanup;
-- faz `unset` do secret após reconciliação.
 
 O secret não pertence ao Git.
 
 ## Ordem de reconciliação
 
-O `sync-clients.sh` faz duas passadas:
+`sync-clients.sh` usa duas passadas:
 
-1. cria todos os `microservice` e seus audience scopes;
+1. cria `microservice` e seus audience scopes;
 2. reconcilia mobile/web/service/password-broker.
 
 Motivo:
 
-> aplicações podem referenciar audiences sem depender da ordem alfabética dos arquivos.
+> consumidores podem referenciar audiences sem depender da ordem alfabética dos arquivos.
 
-## Adicionando uma nova API
+## Adicionar nova API
 
 Exemplo:
 
@@ -303,32 +333,35 @@ MAPPER_NAME=ms-nova-api-audience
 
 Depois:
 
-1. valide com `bash iac/validate.sh`;
-2. adicione a audience aos clients que precisam chamar a API;
+1. rode `bash iac/validate.sh`;
+2. adicione a audience aos clients consumidores;
 3. faça deploy/reconciliação;
-4. configure a API para validar issuer + audience;
-5. teste token certo e token de audience errada.
+4. configure issuer + JWKS + audience na API;
+5. teste token certo, expirado e audience errada;
+6. teste roles/ownership.
 
-## Adicionando mobile/web de verdade
+Veja [Guia: nova API com Keycloak](../guides/new-keycloak-api.md).
 
-Não copie o exemplo sem trocar:
+## Adicionar mobile/web real
+
+Não copie exemplo sem trocar:
 
 - client ID;
 - redirect URI;
 - web origin;
 - audiences.
 
-Para web:
+Web:
 
 - HTTPS em produção;
 - origins exatas;
-- nada de client secret no browser.
+- sem client secret no browser.
 
-Para mobile:
+Mobile:
 
-- PKCE;
+- PKCE S256;
 - redirect URI controlado pelo app;
-- armazenamento seguro dos tokens.
+- armazenamento seguro de tokens.
 
 ## Falhas comuns
 
@@ -343,15 +376,18 @@ exp
 assinatura
 ```
 
+No Spring, confirme também role reconhecida.
+
 ### Client existe, audience não aparece
 
 Cheque:
 
 - scope criado;
 - mapper criado;
-- scope anexado ao client consumidor.
+- scope anexado ao client consumidor;
+- token foi reemitido depois da mudança.
 
-### User Storage não encontra usuários
+### User Storage não encontra usuário
 
 Cheque:
 
@@ -363,14 +399,14 @@ Cheque:
 - provider Java;
 - PostgreSQL legado.
 
-### Alterei um .conf e nada mudou
+### Alterei um `.conf` e nada mudou
 
-O reconciliador só roda no startup/deploy correspondente. Verifique logs `[keycloak-iac]`.
+O reconciliador roda no startup/deploy correspondente. Veja logs `[keycloak-iac]`.
 
 ## Semântica de remoção
 
 A reconciliação é deliberadamente não destrutiva.
 
-Remover um `.conf` do Git não significa automaticamente apagar o client do Keycloak.
+Remover um `.conf` do Git não significa apagar automaticamente o client no Keycloak.
 
-Exclusão precisa ser uma operação administrativa explícita.
+Exclusão exige operação administrativa explícita.

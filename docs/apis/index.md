@@ -1,133 +1,115 @@
 # APIs do Ouros
 
-Esta página responde **qual interface usar**. Para detalhes internos, abra a página do respectivo repo.
+Esta seção é a referência de integração entre clientes e serviços. O objetivo é responder quatro perguntas sem exigir leitura do código:
 
-## Matriz
+1. **qual serviço chamar**;
+2. **como autenticar**;
+3. **qual contrato enviar/receber**;
+4. **quais erros e regras de autorização esperar**.
 
-| Serviço | Interface | Principal uso | Auth atual |
+## Estado atual
+
+| Serviço | Interface | Responsabilidade | Autenticação atual |
 | --- | --- | --- | --- |
-| `ms-spring-api` | REST | domínio transacional | JWT legado Spring |
-| `ms-auth-service` | REST | login/credenciais | público + service JWT interno |
-| `ouros-keycloak` | OIDC/OAuth2 | tokens/sessões/roles | protocolos Keycloak |
-| `ms-ai-server` | REST | chat Midas | Bearer/JWT configurável |
-| Knowledge MCP | MCP Streamable HTTP + REST health | tools de conhecimento/dados | Bearer MCP |
-| Telemetry | REST | dashboards/gráficos | Bearer estático |
-| GitHub Manager | REST + UI | engenharia interna | sessão/cookie |
-| Auto Review | webhook HTTP | automação GitHub | HMAC GitHub |
+| `ms-spring-api` | REST/OpenAPI | domínio transacional | **JWT Keycloak** com issuer + JWKS + audience `ms-spring-api` |
+| `ms-auth-service` | REST | login, credenciais e bridge de identidade | rotas públicas + JWT de serviço nas rotas internas |
+| `ouros-keycloak` | OIDC/OAuth2 | tokens, roles, audiences e federação | protocolos Keycloak |
+| `ms-ai-server` | REST | chat Midas e histórico | Bearer compartilhado **ou** JWT HS256 configurável |
+| Knowledge MCP | MCP Streamable HTTP | conhecimento, contexto e importação | Bearer estático compartilhado |
+| Telemetry | REST | dashboards Databricks e renderização | Bearer estático em rotas de negócio |
+| GitHub Manager | REST + UI | criação/padronização de repos | cookie de sessão assinado |
+| Auto Review | webhook HTTP | revisão automática de PRs | assinatura HMAC do GitHub |
 
-## “Qual API eu chamo?”
+!!! important "Spring já migrou para Keycloak"
+    O `ms-spring-api` atual não possui mais endpoints de login local. Ele é um OAuth2 Resource Server e valida tokens Keycloak por JWKS, issuer e audience.
 
-### Preciso autenticar um usuário
+## Fluxo principal de login + domínio
 
-Use `ms-auth-service` e/ou Keycloak, conforme fluxo do cliente.
+```mermaid
+sequenceDiagram
+    participant C as Cliente
+    participant A as ms-auth-service
+    participant K as Keycloak
+    participant S as ms-spring-api
 
-Não adicione login novo em outro microserviço.
+    C->>A: POST /v1/auth/token
+    A->>K: password broker
+    K-->>A: access/refresh token (aud=ms-spring-api)
+    A-->>C: tokens Keycloak
+    C->>S: Authorization: Bearer <access_token>
+    S->>K: JWKS/cache local de chaves
+    S-->>C: recurso autorizado
+```
 
-### Preciso criar/editar fazenda, lote, consumo ou perfil
+O client `ms-auth-service-broker` está configurado no IaC com `AUDIENCES="ms-spring-api"`, então o fluxo first-party já foi preparado para produzir token aceito pelo Spring.
 
-Use `ms-spring-api`.
+## Qual interface usar?
 
-### Preciso conversar com o Midas
-
-Use `ms-ai-server /v1/chat`.
-
-O cliente não deve chamar diretamente as tools MCP para reproduzir lógica que pertence ao AI Server, exceto se estiver construindo um consumidor MCP autorizado específico.
-
-### Preciso buscar conhecimento/documentos
-
-Por dentro do ecossistema de IA, use o Knowledge MCP.
-
-### Preciso consultar dados do usuário para resposta de IA
-
-Use tools user-scoped do Knowledge MCP, com identidade vinculada pelo backend.
-
-### Preciso renderizar dashboard Databricks
-
-Use `ms-telemetry-dashboard-service`.
-
-## Contratos principais
-
-### Auth Service
+### Login de usuário
 
 ```http
 POST /v1/auth/token
-POST /v1/auth/credentials/verify
-GET  /health
-GET  /ready
 ```
 
-### AI Server
+Use o **Auth Service**. Ele aplica rate limit e devolve tokens emitidos pelo Keycloak.
+
+### CRUD de fazenda, empresa, lotes, água, energia e perfis
+
+Use o **Spring API**.
+
+### Chat Midas
 
 ```http
 POST /v1/chat
-GET  /v1/chat/{thread_id}/history
-GET  /metrics
 ```
 
-### Telemetry
+Use o **AI Server**. Clientes comuns não devem reproduzir o roteamento de tools MCP diretamente.
 
-```http
-GET /v1/dashboards
-GET /v1/dashboards/{id}
-GET /v1/dashboards/{id}/charts
-GET /v1/dashboards/{id}/charts/{chart_id}/png
-GET /v1/dashboards/{id}/charts/{chart_id}/chartjs
-```
+### Conhecimento e dados para agentes
 
-### Spring API
+Use o **Knowledge MCP** por um consumidor MCP autorizado, normalmente o AI Server.
 
-Recursos:
+### Dashboard Databricks
 
-- `/addresses`;
-- `/enterprises`;
-- `/farms`;
-- `/farm-owners`;
-- `/company-employees`;
-- `/lots`;
-- `/water-registries`;
-- `/energy-registries`.
+Use o **Telemetry Dashboard Service**.
 
-## OpenAPI
+### Criar/configurar repositório da org
 
-Quando disponível, prefira OpenAPI/Swagger como referência de **shape exato** do endpoint.
+Use o **GitHub Manager**. É uma API interna privilegiada, protegida por sessão.
 
-A documentação central deve responder:
+### Auto review
 
-- por que chamar;
-- como autenticar;
-- fluxo;
-- ownership;
-- erros;
-- relações entre serviços.
+O **Auto Review** não é uma API de cliente convencional. Ele recebe webhooks do GitHub em `POST /webhooks/github`.
 
-Evite copiar manualmente centenas de schemas gerados, pois eles envelhecem mais rápido.
+## Fonte de verdade dos contratos
 
-## Health vs readiness
+| Tipo | Fonte preferida |
+| --- | --- |
+| shape HTTP exato | OpenAPI/Swagger da versão implantada |
+| autorização/ownership | service layer + esta documentação |
+| OIDC/JWT | IaC do `ouros-keycloak` |
+| tools MCP | `app/mcp_server.py` + referência Midas/MCP |
+| mudanças de banco | repos de database/migrations |
 
-Não confunda:
+A wiki explica contexto e integração. Quando OpenAPI e texto divergirem, confira o commit/deploy e corrija a documentação.
 
-- **health/liveness**: processo está vivo;
-- **readiness**: dependências/config estão utilizáveis.
+## Convenções importantes
 
-`ms-auth-service` e telemetry possuem distinção explícita.
+Não existe um único formato universal de erro entre todos os serviços:
 
-## Erros entre serviços
+- Spring usa `ProblemDetail`;
+- FastAPI normalmente usa `{"detail": ...}`;
+- validação Pydantic usa 422;
+- Auth rate limit usa 429 + `Retry-After`.
 
-Ao criar integração:
+Veja [Convenções de API](conventions.md).
 
-1. preserve status úteis;
-2. defina timeout;
-3. defina retry somente onde seguro;
-4. não faça retry cego de mutação;
-5. logue request/correlation ID, não token;
-6. converta falha externa em erro de integração claro.
+## Referências
 
-## URLs públicas confirmadas no código
-
-- Keycloak: `https://ouros-keycloak.discloud.app`;
-- Auth Service: `https://ms-auth-service.discloud.app`;
-- AI Server é referenciado como `ms-ai-server.discloud.app` na configuração de métricas;
-- MCP de conhecimento é referenciado como `https://ms-midas-mcp.discloud.app/mcp/`.
-
-!!! note
-    Não invente host de produção a partir do nome do repo. Só documentamos URLs que aparecem explicitamente no código/configuração.
+- [Spring API](spring-api-reference.md)
+- [Auth Service](auth-service-reference.md)
+- [Midas e MCP](ai-mcp-reference.md)
+- [Telemetry](telemetry-reference.md)
+- [Keycloak clients e audiences](keycloak-clients.md)
+- [Autenticação e identidade](authentication.md)
+- [Exemplos executáveis](examples.md)

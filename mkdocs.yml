@@ -105,12 +105,22 @@ nav:
           - MongoDB: repositories/templates/mongodb-database-template.md
   - APIs:
       - Visão geral: apis/index.md
-      - Spring API: apis/spring-api-reference.md
-      - Auth Service: apis/auth-service-reference.md
-      - Midas e MCP: apis/ai-mcp-reference.md
-      - Telemetry: apis/telemetry-reference.md
-      - Keycloak clients e audiences: apis/keycloak-clients.md
-      - Autenticação e identidade: apis/authentication.md
+      - Convenções: apis/conventions.md
+      - Tokens e credenciais: apis/token-compatibility.md
+      - Versionamento e evolução: apis/versioning.md
+      - Produto:
+          - Spring API:
+              - Rotas e autorização: apis/spring-api-reference.md
+              - Payloads e validação: apis/spring-payloads.md
+          - Auth Service: apis/auth-service-reference.md
+          - Midas e MCP: apis/ai-mcp-reference.md
+          - Telemetry: apis/telemetry-reference.md
+      - Identidade:
+          - Autenticação e identidade: apis/authentication.md
+          - Keycloak clients e audiences: apis/keycloak-clients.md
+      - Automação:
+          - GitHub Manager: apis/github-manager-reference.md
+          - Auto Review webhook: apis/autoreview-webhook.md
       - Exemplos: apis/examples.md
   - Bancos de dados:
       - Visão geral: databases/index.md
