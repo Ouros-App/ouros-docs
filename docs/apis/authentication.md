@@ -8,7 +8,8 @@ Keycloak já é o issuer central para o fluxo de domínio:
 flowchart LR
     CLIENT[Cliente] --> AUTH[ms-auth-service /v1/auth/token]
     AUTH --> KC[Keycloak]
-    KC -->|JWT aud=ms-spring-api| CLIENT
+    KC -->|JWT aud=ms-spring-api| AUTH
+    AUTH -->|access + refresh| CLIENT
     CLIENT --> SPRING[ms-spring-api]
     SPRING -->|JWKS + issuer + audience| KC
 ```

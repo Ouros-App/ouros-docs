@@ -20,15 +20,25 @@ curl -fsS "$KEYCLOAK_ISSUER/.well-known/openid-configuration" | jq
 
 ## Login → Spring API
 
-Obter token:
+Obter token sem colocar a senha nos argumentos do `curl`:
 
 ```bash
+read -r -p "Email: " OUROS_EMAIL
+read -r -s -p "Senha: " OUROS_PASSWORD
+printf '\n'
+
 ACCESS_TOKEN="$(
+  jq -n \
+    --arg email "$OUROS_EMAIL" \
+    --arg password "$OUROS_PASSWORD" \
+    '{email:$email,password:$password}' |
   curl -fsS "$AUTH_URL/v1/auth/token" \
     -H 'content-type: application/json' \
-    --data-binary '{"email":"usuario@example.com","password":"<senha>"}' |
+    --data-binary @- |
   jq -r .access_token
 )"
+
+unset OUROS_PASSWORD
 ```
 
 Chamar Spring:
@@ -62,14 +72,20 @@ curl -i "$AUTH_URL/ready"
 ## Verificar credencial sem emitir token
 
 ```bash
+read -r -p "Email: " OUROS_EMAIL
+read -r -s -p "Senha: " OUROS_PASSWORD
+printf '\n'
+
+jq -n \
+  --arg email "$OUROS_EMAIL" \
+  --arg password "$OUROS_PASSWORD" \
+  '{email:$email,password:$password,account_type:"farm_owner"}' |
 curl -fsS "$AUTH_URL/v1/auth/credentials/verify" \
   -H 'content-type: application/json' \
-  --data-binary '{
-    "email":"usuario@example.com",
-    "password":"<senha>",
-    "account_type":"farm_owner"
-  }' |
-  jq
+  --data-binary @- |
+jq
+
+unset OUROS_PASSWORD
 ```
 
 ## AI Server
@@ -126,7 +142,7 @@ code="$(
 )"
 printf 'HTTP %s
 ' "$code"
-cat /tmp/ouros-response.json | jq .
+jq . /tmp/ouros-response.json 2>/dev/null || cat /tmp/ouros-response.json
 ```
 
 ## Regra de segurança

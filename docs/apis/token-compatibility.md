@@ -6,15 +6,15 @@ Esta matriz mostra **o que é aceito por quem** no estado atual.
 
 ## Matriz
 
-| Credencial | Origem | Spring | Auth público | Auth interno | AI Server | Knowledge MCP | Telemetry |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| JWT Keycloak do `/v1/auth/token` | Auth broker / Keycloak | ✅ | n/a | ❌ | ❌* | ❌ | ❌ |
-| service JWT `keycloak-user-storage` | Keycloak Client Credentials | ❌ | n/a | ✅ | ❌ | ❌ | ❌ |
-| `AUTH_BEARER_TOKEN` | AI Server config | ❌ | n/a | ❌ | ✅ | ❌ | ❌ |
-| JWT HS256 do AI Server | secret local do AI | ❌ | n/a | ❌ | ✅ | ❌ | ❌ |
-| `MCP_AUTH_TOKEN` | Knowledge MCP config | ❌ | n/a | ❌ | ❌ | ✅ | ❌ |
-| `API_BEARER_TOKEN` | Telemetry config | ❌ | n/a | ❌ | ❌ | ❌ | ✅ |
-| cookie `session` | GitHub Manager | ❌ | n/a | ❌ | ❌ | ❌ | ❌ |
+| Credencial | Origem | Spring | Auth público | Auth interno | AI Server | Knowledge MCP | Telemetry | GitHub Manager |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| JWT Keycloak do `/v1/auth/token` | Auth broker / Keycloak | ✅ | n/a | ❌ | ❌* | ❌ | ❌ | ❌ |
+| service JWT `keycloak-user-storage` | Keycloak Client Credentials | ❌ | n/a | ✅ | ❌ | ❌ | ❌ | ❌ |
+| `AUTH_BEARER_TOKEN` | AI Server config | ❌ | n/a | ❌ | ✅ | ❌ | ❌ | ❌ |
+| JWT HS256 do AI Server | secret local do AI | ❌ | n/a | ❌ | ✅ | ❌ | ❌ | ❌ |
+| `MCP_AUTH_TOKEN` | Knowledge MCP config | ❌ | n/a | ❌ | ❌ | ✅ | ❌ | ❌ |
+| `API_BEARER_TOKEN` | Telemetry config | ❌ | n/a | ❌ | ❌ | ❌ | ✅ | ❌ |
+| cookie `session` | GitHub Manager | ❌ | n/a | ❌ | ❌ | ❌ | ❌ | ✅ |
 
 * O AI Server poderia aceitar um JWT externo **somente se** ele fosse assinado em HS256 com o `AUTH_JWT_SECRET` local e satisfizesse issuer/audience configurados. O JWT Keycloak padrão usa o modelo de chaves/JWKS do Keycloak e não é automaticamente compatível.
 
