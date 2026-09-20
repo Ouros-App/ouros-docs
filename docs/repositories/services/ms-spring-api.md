@@ -6,6 +6,9 @@
 
 ## Responsabilidade
 
+!!! warning "README do repo está defasado"
+    O README da `main` ainda descreve apenas `/` e `/health` e afirma que não existem CRUD/auth implementados. Esta página segue o código executável atual, que já possui CRUD completo e OAuth2 Resource Server Keycloak.
+
 API transacional principal do domínio Ouros:
 
 - endereços;

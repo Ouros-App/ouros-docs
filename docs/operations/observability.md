@@ -97,17 +97,13 @@ Possui Prometheus:
 - duração HTTP;
 - métricas padrão de processo.
 
-`/metrics` pode ser protegido por:
-
-```text
-METRICS_TOKEN
-```
-
-Se o token estiver configurado, é exigido:
+`/metrics` exige `METRICS_TOKEN`:
 
 ```http
-Authorization: Bearer <token>
+Authorization: Bearer <METRICS_TOKEN>
 ```
+
+Se o token não estiver configurado **ou** estiver incorreto, o middleware atual retorna 401.
 
 ## Keycloak
 

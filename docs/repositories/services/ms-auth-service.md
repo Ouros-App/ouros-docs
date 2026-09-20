@@ -52,6 +52,8 @@ Sucesso retorna a identidade normalizada, incluindo `id`, `account_type`, role e
 
 Contrato de login first-party.
 
+O client `ms-auth-service-broker` está configurado no Keycloak com audience `ms-spring-api`. O access token devolvido por esta rota é, portanto, o caminho esperado para chamar o Spring API atual.
+
 ```mermaid
 sequenceDiagram
     Client->>Auth: email + senha
