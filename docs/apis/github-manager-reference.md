@@ -169,7 +169,7 @@ O nome do repo precisa terminar com `-database`.
 
 ### Template MongoDB
 
-Exige:
+Também exige nome terminando em `-database` e:
 
 ```json
 {

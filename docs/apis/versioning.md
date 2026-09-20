@@ -13,7 +13,7 @@ Esta página documenta o estado atual e as regras recomendadas para evoluir cont
 | Auth interno | `/internal/v1/**` | oculto do OpenAPI público |
 | AI Server | `/v1/chat/**` | FastAPI OpenAPI |
 | Telemetry | `/v1/dashboards/**` | FastAPI OpenAPI |
-| GitHub Manager | sem prefixo global | FastAPI OpenAPI |
+| GitHub Manager | sem prefixo global | FastAPI OpenAPI, protegido por sessão |
 | Knowledge MCP | protocolo MCP em `/mcp/` | REST health em FastAPI; tools via MCP |
 | Auto Review | `/webhooks/github` | não usa OpenAPI |
 
