@@ -132,12 +132,26 @@ Grupos principais:
 - Groq: keys e modelos fast/powerful;
 - NIM: key, modelos, base URL;
 - auth: Bearer/JWT/issuer/audience;
-- MCP: URL, token/JWT, issuer/resource, TTL;
+- MCP: URL, token estático ou caminho JWT experimental, issuer/resource e TTL;
 - timeouts/temperatura.
 
 ## Identidade
 
-Quando `AUTH_REQUIRE_USER_JWT=true`, o `sub` autenticado precisa coincidir com `user_id`. Threads também possuem owner persistido e não podem trocar de usuário posteriormente.
+Quando `AUTH_REQUIRE_USER_JWT=true`, o `sub`/user ID autenticado precisa coincidir com `user_id`. Threads também possuem owner persistido e não podem trocar de usuário posteriormente.
+
+### Interop com Knowledge MCP
+
+O provider pode gerar JWT HS256 por usuário via `MCP_JWT_SECRET`, mas o Knowledge MCP atual só aceita token estático por igualdade exata.
+
+No estado atual, use:
+
+```text
+MCP_ACCESS_TOKEN (AI Server)
+=
+MCP_AUTH_TOKEN (Knowledge MCP)
+```
+
+até existir um verifier JWT compatível no MCP.
 
 ## Observabilidade
 

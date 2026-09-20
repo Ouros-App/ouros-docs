@@ -75,7 +75,10 @@ Separação de credenciais:
 - `MIDAS_DATABASE_URL`: leitura;
 - `MIDAS_IMPORT_DATABASE_URL`: role de importação com `EXECUTE` controlado.
 
-O transporte MCP usa Bearer configurado em `MCP_AUTH_TOKEN`.
+O transporte MCP usa Bearer configurado em `MCP_AUTH_TOKEN`. O verifier atual é estático: ele exige token com pelo menos 32 caracteres e faz comparação exata.
+
+!!! warning "JWT do AI Server ainda não é aceito"
+    O AI Server possui um caminho opcional que gera JWT HS256 por usuário, mas o Knowledge MCP atual não valida JWT. Para interoperar hoje, configure `MCP_ACCESS_TOKEN` no AI Server com o mesmo valor de `MCP_AUTH_TOKEN` neste serviço.
 
 ## Qdrant
 

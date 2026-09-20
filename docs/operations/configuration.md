@@ -129,16 +129,17 @@ Quando `AUTH_REQUIRE_USER_JWT=true`, o serviço passa a exigir identidade JWT co
 
 ### MCP
 
+Modo interoperável com o Knowledge MCP atual:
+
 ```text
 MCP_URL=https://ms-midas-mcp.discloud.app/mcp/
-MCP_JWT_ISSUER_URL=https://auth.ouros.local
-MCP_RESOURCE_URL=https://ms-midas-mcp.discloud.app/mcp/
+MCP_ACCESS_TOKEN=<mesmo valor de MCP_AUTH_TOKEN no MCP>
 MCP_USER_TYPE=farm_owner
-MCP_JWT_TTL_SECONDS=300
 ```
 
-!!! warning
-    `https://auth.ouros.local` aparece como default/exemplo para issuer MCP no snapshot atual. Não assuma que é um endpoint público resolvível.
+O AI Server também possui `MCP_JWT_SECRET`, `MCP_JWT_ISSUER_URL`, `MCP_RESOURCE_URL` e TTL para gerar JWT curto por usuário. Porém, o Knowledge MCP atual usa verifier estático e **não aceita esses JWTs**.
+
+Não habilite o modo JWT isoladamente até o MCP possuir verifier compatível.
 
 ## Knowledge MCP
 
@@ -274,25 +275,20 @@ O repo orienta preferir `KCRAW_DB_PASSWORD` para preservar caracteres como `$` l
 
 ## Spring API
 
-`.env.example` atual:
+Configuração de runtime observada:
 
 ```text
-SERVER_PORT=8000
-DB_URL=jdbc:postgresql://<HOST>:<PORT>/<DATABASE>?sslmode=require
-DB_USERNAME=<USERNAME>
-DB_PASSWORD=<PASSWORD>
+SERVER_PORT=8080
+KEYCLOAK_ISSUER_URL=https://ouros-keycloak.discloud.app/realms/ouros
+KEYCLOAK_JWK_SET_URL=https://ouros-keycloak.discloud.app/realms/ouros/protocol/openid-connect/certs
+KEYCLOAK_AUDIENCE=ms-spring-api
+KEYCLOAK_CLIENT_ID=ms-spring-api
+CORS_ALLOWED_ORIGINS=
 ```
 
-Também existem configurações de:
+Além disso, o serviço precisa do datasource PostgreSQL e pode receber secrets pelo Infisical.
 
-- JWT legado;
-- CORS;
-- Infisical;
-- JPA/Hibernate;
-- OpenAPI.
-
-!!! note
-    O `discloud.config` atual inicia o JAR com `--server.port=8080`. Portanto, diferencie porta de desenvolvimento do runtime de deploy.
+Não há mais `app.jwt.secret`/emissor JWT local no contrato atual: o Spring valida tokens do Keycloak por JWKS.
 
 ## GitHub Manager
 

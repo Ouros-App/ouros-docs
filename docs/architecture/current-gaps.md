@@ -6,16 +6,33 @@ Este inventário registra diferenças observadas entre o estado atual e uma plat
 
 Hoje coexistem:
 
-- Keycloak como issuer central novo;
-- Auth Service como bridge;
-- JWT/login legado no Spring API;
-- Bearer estático em serviços como Telemetry/MCP.
+- Keycloak como issuer central;
+- Auth Service como bridge para credenciais legadas;
+- Spring API já migrado para JWT Keycloak/JWKS/audience;
+- Bearer estático no Telemetry e Knowledge MCP;
+- Bearer compartilhado/JWT HS256 local no AI Server.
 
 Implicação:
 
-- clientes e APIs podem seguir contratos diferentes durante a migração;
-- rollout precisa ser compatível;
-- novos serviços não devem copiar o mecanismo legado por inércia.
+- clientes não podem assumir que o mesmo token é aceito por todos os serviços;
+- novos resource servers devem seguir o padrão Keycloak do Spring;
+- migrações de Telemetry/AI/MCP precisam preservar compatibilidade durante o rollout.
+
+## AI Server e Knowledge MCP têm modos de auth incompatíveis
+
+O AI Server contém código para gerar JWT HS256 curto por usuário para o MCP quando `MCP_JWT_SECRET` é usado.
+
+O Knowledge MCP atual usa `StaticTokenVerifier` e aceita somente igualdade exata com `MCP_AUTH_TOKEN`.
+
+Portanto, o modo interoperável hoje é:
+
+```text
+AI Server MCP_ACCESS_TOKEN
+        ==
+Knowledge MCP MCP_AUTH_TOKEN
+```
+
+O caminho JWT per-user exige implementar um verifier JWT compatível no MCP antes de ser habilitado.
 
 ## Web ainda é scaffold
 
