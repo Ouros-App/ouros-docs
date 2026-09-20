@@ -125,11 +125,21 @@ Sucesso:
 
 Sem `account_type`, o serviço procura candidatos compatíveis; identidade ambígua pode resultar em 409.
 
-## Readiness
+## Health e readiness
 
-`/health` verifica processo.
+`GET /health`:
 
-`/ready` só retorna ready quando:
+```json
+{"status":"ok"}
+```
+
+`GET /ready`:
+
+```json
+{"status":"ready"}
+```
+
+A readiness só retorna sucesso quando:
 
 - PostgreSQL responde;
 - rate limiter/Redis responde no modo configurado.

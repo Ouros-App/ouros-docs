@@ -133,6 +133,33 @@ O JSON embutido é escapado para `<`, `>` e `&`, e o título passa por escape HT
 
 Se `API_BEARER_TOKEN` não estiver configurado, uma rota protegida retorna **503**, não 401.
 
+## Contrato de dashboard/chart
+
+Tipos públicos de chart:
+
+```text
+counter
+bar
+line
+pie
+```
+
+Definições internas vindas do provider carregam conceitos como:
+
+```text
+id
+title
+type
+warehouse_id
+dataset_query
+fields[]
+encodings{}
+```
+
+Cada field possui nome e expressão. O provider converte metadata/serialized dashboard do Databricks para esse contrato antes do rendering.
+
+O catálogo local de dashboards pode coexistir com descoberta do provider; não assuma que a lista versionada local é a única fonte de dashboards visíveis.
+
 ## Request ID
 
 O serviço suporta `X-Request-ID` para correlação.
