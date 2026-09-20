@@ -1,89 +1,89 @@
 # Telemetry Dashboard: referência de API
 
-Contrato atual de `ms-telemetry-dashboard-service`.
+Contrato atual do `ms-telemetry-dashboard-service`.
 
-## Autenticação
+## Auth
 
-As rotas de negócio usam **token estático** configurado em `API_BEARER_TOKEN`, enviado como:
+Rotas de negócio usam token estático:
 
 ```http
-Authorization: Bearer <api-bearer-token>
+Authorization: Bearer <API_BEARER_TOKEN>
 ```
 
-Esse mecanismo **não é JWT Keycloak** no código atual: o serviço não valida assinatura, issuer, JWKS nem audience. O resource server já existe no IaC do Keycloak, mas a migração da aplicação ainda não foi concluída.
+Não há validação de JWT Keycloak no código atual.
 
-Meta/health/readiness/metrics têm tratamento próprio conforme a implementação.
+O IaC já possui resource server `ms-telemetry-dashboard-service`, então a infraestrutura para migração existe, mas a aplicação ainda usa `compare_digest` contra o token configurado.
 
-## GET `/health`
+## Rotas
 
-Liveness.
+| Método | Rota | Auth | Resposta |
+| --- | --- | --- | --- |
+| GET | `/` | pública | mensagem |
+| GET | `/health` | pública | liveness |
+| GET | `/ready` | pública | readiness |
+| GET | `/metrics` | pública | Prometheus |
+| GET | `/v1/dashboards` | Bearer estático | JSON |
+| GET | `/v1/dashboards/{id}` | Bearer estático | JSON |
+| GET | `/v1/dashboards/{id}/charts` | Bearer estático | JSON |
+| GET | `/v1/dashboards/{id}/charts/{chart_id}/png` | Bearer estático | image/png |
+| GET | `/v1/dashboards/{id}/charts/{chart_id}/chartjs` | Bearer estático | text/html |
 
-## GET `/ready`
+!!! warning "Metrics público"
+    `/metrics` não exige Bearer na versão atual.
 
-Valida configuração necessária para Databricks.
+## Readiness
 
-Response:
+`/ready` valida configuração obrigatória, incluindo:
+
+- `API_BEARER_TOKEN`;
+- `DATABRICKS_HOST`;
+- `DATABRICKS_CLIENT_ID`;
+- `DATABRICKS_CLIENT_SECRET`.
+
+Pronto:
 
 ```json
-{
-  "status": "ready",
-  "errors": []
-}
+{"status":"ok","errors":[]}
 ```
 
-Quando não pronto, a rota usa **503** e lista erros sanitizados.
+Não pronto: 503 com lista sanitizada em `errors`.
 
-## GET `/metrics`
+## Dashboards
 
-Prometheus.
+### Listar
 
-No código atual, `/metrics` **não exige Bearer**: a rota não usa `require_bearer` e `app/main.py` não adiciona middleware global de autenticação. Portanto, trate o endpoint como público enquanto esse contrato não mudar.
-
-## GET `/v1/dashboards`
-
-Retorna:
+```http
+GET /v1/dashboards
+```
 
 ```json
 {
   "items": [
     {
-      "id": "dashboard-local-id",
-      "title": "Título",
-      "description": "Descrição",
+      "id": "operacao",
+      "title": "Operação",
+      "description": "Indicadores",
       "provider": "databricks"
     }
   ]
 }
 ```
 
-Falhas externas:
+### Dashboard individual
 
-- Databricks timeout → **504**;
-- integração Databricks → **502**.
-
-## GET `/v1/dashboards/{dashboard_id}`
-
-Retorna `DashboardPublic`.
-
-Não encontrado: **404**.
-
-## GET `/v1/dashboards/{dashboard_id}/charts`
-
-Response:
-
-```json
-{
-  "items": [
-    {
-      "id": "chart-id",
-      "title": "Título",
-      "type": "bar"
-    }
-  ]
-}
+```http
+GET /v1/dashboards/{dashboard_id}
 ```
 
-Tipos suportados pelo schema:
+404 quando não existe/visível.
+
+### Charts
+
+```http
+GET /v1/dashboards/{dashboard_id}/charts
+```
+
+Tipos públicos:
 
 ```text
 counter
@@ -92,129 +92,68 @@ line
 pie
 ```
 
-## GET `/v1/dashboards/{dashboard_id}/charts/{chart_id}/png`
+### PNG
 
-Retorna imagem PNG.
-
-Erros:
-
-- dashboard/chart ausente → 404;
-- timeout → 504;
-- integração → 502.
-
-O serviço define cache privado curto para PNG.
-
-## GET `/v1/dashboards/{dashboard_id}/charts/{chart_id}/chartjs`
-
-Retorna HTML self-contained com Chart.js.
-
-A resposta usa `no-store`.
-
-O código escapa conteúdo relevante antes de embutir JSON/HTML.
-
-## Modelo interno de chart
-
-Uma definição de chart possui:
-
-```text
-id
-title
-type
-warehouse_id
-dataset_query
-fields[]
-encodings{}
+```http
+GET /v1/dashboards/{dashboard_id}/charts/{chart_id}/png
 ```
 
-Cada field:
+Header:
 
-```text
-name
-expression
+```http
+Cache-Control: private, max-age=30
+Content-Type: image/png
 ```
 
-O provider converte metadata/serialized dashboard do Databricks para esse contrato interno.
+### Chart.js
 
-## DashboardRecord local
-
-Campos:
-
-| Campo | Regra |
-| --- | --- |
-| `id` | lowercase/dígitos/hífen, até 64 |
-| `provider` | literalmente `databricks` |
-| `title` | 1..200 |
-| `description` | até 1000 |
-| `dashboard_id` | 1..200 |
-| `enabled` | bool, default true |
-
-O catálogo local está vazio no snapshot analisado; descoberta real pode vir do provider Databricks.
-
-## Databricks
-
-Modelos internos incluem:
-
-### Token
-
-```text
-access_token
-expires_in?
+```http
+GET /v1/dashboards/{dashboard_id}/charts/{chart_id}/chartjs
 ```
 
-### Dashboard summary
+Retorna HTML self-contained/iframe-friendly.
 
-```text
-dashboard_id
-display_name
-lifecycle_state = ACTIVE | TRASHED
+Header:
+
+```http
+Cache-Control: no-store
 ```
 
-### Dashboard definition
+O JSON embutido é escapado para `<`, `>` e `&`, e o título passa por escape HTML.
 
-```text
-dashboard_id
-serialized_dashboard
-warehouse_id?
-```
+## Erros
+
+| Status | Causa |
+| ---: | --- |
+| 401 | Bearer ausente/incorreto |
+| 404 | dashboard/chart não encontrado |
+| 502 | integração Databricks falhou |
+| 503 | auth/config não configurada ou readiness falhou |
+| 504 | request Databricks excedeu timeout |
+
+Se `API_BEARER_TOKEN` não estiver configurado, uma rota protegida retorna **503**, não 401.
 
 ## Request ID
 
-O serviço suporta `X-Request-ID`.
-
-Use em debug:
+O serviço suporta `X-Request-ID` para correlação.
 
 ```bash
-curl -i "$TELEMETRY_URL/health" \
-  -H 'X-Request-ID: debug-telemetry-001'
+curl -i "$TELEMETRY_URL/health"   -H 'X-Request-ID: debug-telemetry-001'
 ```
 
-## Retry e timeout
+## Retry/cache
 
-Configuração central inclui:
+O cliente Databricks já aplica timeout/retry configurado. Evite empilhar retries agressivos no consumidor.
 
-- HTTP timeout;
-- máximo de retries;
-- retry backoff;
-- SQL wait timeout;
-- margem de refresh OAuth.
+Cache de charts: default 30 s.
 
-Não faça retry adicional agressivo no cliente sem considerar os retries internos.
+## Migração futura para Keycloak
 
-## Caching
-
-Default observado:
+Resource server já versionado:
 
 ```text
-CHART_CACHE_TTL_SECONDS=30
+CLIENT_ID=ms-telemetry-dashboard-service
+AUDIENCE=ms-telemetry-dashboard-service
 ```
 
-Ao depurar resultado “velho”, considere o cache antes de assumir query errada.
-
-## Compatibilidade
-
-Clientes devem tratar:
-
-- 401/403 de autenticação conforme ambiente;
-- 404 como recurso ausente;
-- 502 como dependência Databricks/integrador;
-- 504 como timeout recuperável conforme contexto.
+Uma migração segura deve aceitar JWT Keycloak em paralelo, migrar consumidores e só depois remover o token estático.
