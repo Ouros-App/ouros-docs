@@ -107,6 +107,7 @@ nav:
       - Visão geral: apis/index.md
       - Convenções: apis/conventions.md
       - Tokens e credenciais: apis/token-compatibility.md
+      - Versionamento e evolução: apis/versioning.md
       - Produto:
           - Spring API: apis/spring-api-reference.md
           - Auth Service: apis/auth-service-reference.md
