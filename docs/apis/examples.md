@@ -24,7 +24,9 @@ Obter token:
 
 ```bash
 ACCESS_TOKEN="$(
-  curl -fsS "$AUTH_URL/v1/auth/token"     -H 'content-type: application/json'     --data-binary '{"email":"usuario@example.com","password":"<senha>"}' |
+  curl -fsS "$AUTH_URL/v1/auth/token" \
+    -H 'content-type: application/json' \
+    --data-binary '{"email":"usuario@example.com","password":"<senha>"}' |
   jq -r .access_token
 )"
 ```
@@ -32,7 +34,9 @@ ACCESS_TOKEN="$(
 Chamar Spring:
 
 ```bash
-curl -fsS "$SPRING_URL/farms"   -H "Authorization: Bearer $ACCESS_TOKEN" | jq
+curl -fsS "$SPRING_URL/farms" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" |
+  jq
 ```
 
 O broker atual possui audience `ms-spring-api`.
@@ -58,11 +62,14 @@ curl -i "$AUTH_URL/ready"
 ## Verificar credencial sem emitir token
 
 ```bash
-curl -fsS "$AUTH_URL/v1/auth/credentials/verify"   -H 'content-type: application/json'   --data-binary '{
+curl -fsS "$AUTH_URL/v1/auth/credentials/verify" \
+  -H 'content-type: application/json' \
+  --data-binary '{
     "email":"usuario@example.com",
     "password":"<senha>",
     "account_type":"farm_owner"
-  }' | jq
+  }' |
+  jq
 ```
 
 ## AI Server

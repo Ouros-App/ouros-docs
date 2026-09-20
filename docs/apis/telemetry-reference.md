@@ -138,7 +138,8 @@ Se `API_BEARER_TOKEN` não estiver configurado, uma rota protegida retorna **503
 O serviço suporta `X-Request-ID` para correlação.
 
 ```bash
-curl -i "$TELEMETRY_URL/health"   -H 'X-Request-ID: debug-telemetry-001'
+curl -i "$TELEMETRY_URL/health" \
+  -H 'X-Request-ID: debug-telemetry-001'
 ```
 
 ## Retry/cache

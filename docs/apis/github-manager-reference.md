@@ -220,6 +220,18 @@ Response:
 !!! warning "Estado em memória"
     O tracking de criação não é persistido. Reiniciar o processo perde o histórico de `creation_id` em andamento/concluídos.
 
+## Status e falhas
+
+| Status | Situação |
+| ---: | --- |
+| 200 | login/session/listagem/status concluído |
+| 202 | criação assíncrona aceita |
+| 401 | sessão inválida, login inválido ou metrics token inválido/ausente |
+| 404 | creation_id desconhecido |
+| 422 | payload inválido |
+| 429 | limite local de login |
+| 502 | falha ao consultar GitHub em operações que traduzem GitHubManagerError |
+
 ## Validação 422 e secrets
 
 O serviço remove o campo `input` dos erros Pydantic antes de responder.
@@ -241,11 +253,16 @@ Sem token configurado ou token incorreto: 401.
 Login e guardar cookie:
 
 ```bash
-curl -fsS "$GITHUB_MANAGER_URL/auth/login"   -H 'content-type: application/json'   --data-binary '{"username":"admin","password":"<senha>"}'   -c /tmp/ouros-manager.cookies
+curl -fsS "$GITHUB_MANAGER_URL/auth/login" \
+  -H 'content-type: application/json' \
+  --data-binary '{"username":"admin","password":"<senha>"}' \
+  -c /tmp/ouros-manager.cookies
 ```
 
 Listar templates:
 
 ```bash
-curl -fsS "$GITHUB_MANAGER_URL/templates"   -b /tmp/ouros-manager.cookies | jq
+curl -fsS "$GITHUB_MANAGER_URL/templates" \
+  -b /tmp/ouros-manager.cookies |
+  jq
 ```

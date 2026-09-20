@@ -306,7 +306,9 @@ Primeiro obtenha token pelo Auth Service:
 
 ```bash
 TOKEN="$(
-  curl -fsS "$AUTH_URL/v1/auth/token"     -H 'content-type: application/json'     --data-binary '{"email":"usuario@example.com","password":"<senha>"}' |
+  curl -fsS "$AUTH_URL/v1/auth/token" \
+    -H 'content-type: application/json' \
+    --data-binary '{"email":"usuario@example.com","password":"<senha>"}' |
   jq -r .access_token
 )"
 ```
@@ -314,7 +316,8 @@ TOKEN="$(
 Depois:
 
 ```bash
-curl -fsS "$SPRING_URL/farms"   -H "Authorization: Bearer $TOKEN"
+curl -fsS "$SPRING_URL/farms" \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
 O broker Keycloak está configurado para incluir audience `ms-spring-api`.

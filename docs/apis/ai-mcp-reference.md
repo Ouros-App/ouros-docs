@@ -102,6 +102,40 @@ Response:
 }
 ```
 
+### Status e falhas do AI Server
+
+| Status | Situação típica |
+| ---: | --- |
+| 200 | chat concluído **ou** input bloqueado pelo guardrail com resposta segura |
+| 401 | Bearer/JWT ausente ou inválido |
+| 403 | user_id não coincide com identidade; shared bearer proibido em modo user-JWT; thread pertence a outro usuário |
+| 404 | histórico solicitado para thread inexistente |
+| 422 | schema inválido ou cursor `before` inválido |
+| 503 | budget total do provider/LLM excedeu timeout |
+
+Guardrail bloqueado **não é erro HTTP**. Exemplo de resposta 200:
+
+```json
+{
+  "thread_id": "thread-1",
+  "message": "<mensagem-segura-do-guardrail>",
+  "agents": ["guardrail"],
+  "tools": []
+}
+```
+
+Isso permite ao cliente distinguir bloqueio funcional de indisponibilidade técnica.
+
+### Cursor de histórico
+
+`before` é uma posição inteira serializada como string.
+
+Valor não numérico, negativo ou maior que a quantidade de mensagens visíveis retorna 422:
+
+```json
+{"detail":"O cursor before e invalido."}
+```
+
 ## Knowledge MCP
 
 ### Transporte
