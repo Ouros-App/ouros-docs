@@ -109,7 +109,9 @@ nav:
       - Tokens e credenciais: apis/token-compatibility.md
       - Versionamento e evolução: apis/versioning.md
       - Produto:
-          - Spring API: apis/spring-api-reference.md
+          - Spring API:
+              - Rotas e autorização: apis/spring-api-reference.md
+              - Payloads e validação: apis/spring-payloads.md
           - Auth Service: apis/auth-service-reference.md
           - Midas e MCP: apis/ai-mcp-reference.md
           - Telemetry: apis/telemetry-reference.md

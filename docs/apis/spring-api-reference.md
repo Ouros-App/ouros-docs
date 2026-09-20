@@ -147,7 +147,7 @@ Não há endpoint de listagem nem DELETE.
 | --- | --- | --- |
 | POST | `/farm-owners` | ADM/CE |
 | GET | `/farm-owners/me` | FO autenticado |
-| GET | `/farm-owners?farm_id=<id>` | filtro opcional |
+| GET | `/farm-owners?farmId=<id>` | filtro opcional |
 | GET | `/farm-owners/{id}` | ownership por role |
 | PATCH | `/farm-owners/{id}` | parcial |
 | DELETE | `/farm-owners/{id}` | FO não pode remover |
