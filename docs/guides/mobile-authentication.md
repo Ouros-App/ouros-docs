@@ -246,7 +246,7 @@ Se for implementado logout federado, use o `end_session_endpoint` publicado no d
 
 ## Teste E2E antes da integração Android
 
-O backend possui um smoke test independente do app no repositório `ouros-keycloak`:
+O repositório `ouros-docs` possui um smoke test independente do app:
 
 ```bash
 python3 scripts/test-mobile-auth.py
