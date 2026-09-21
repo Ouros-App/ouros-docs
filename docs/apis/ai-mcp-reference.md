@@ -20,33 +20,23 @@ Esta página separa duas interfaces diferentes:
 !!! note
     O router aplica `get_current_principal` globalmente. Até `/health` exige Bearer no código atual.
 
-### Modos de autenticação
+### Autenticação
 
-O AI Server aceita:
+O deployment atual aceita somente access token RS256 emitido pelo Keycloak.
 
-1. **Bearer compartilhado** via `AUTH_BEARER_TOKEN`;
-2. **JWT HS256** via `AUTH_JWT_SECRET`.
+```text
+issuer   = https://ouros-keycloak.discloud.app/realms/ouros
+audience = ms-ai-server
+JWKS     = <issuer>/protocol/openid-connect/certs
+```
 
-Se JWT estiver configurado, ele pode validar:
+O AI Server valida assinatura, issuer, audience, timestamps e identidade de negócio. O principal exige `sub`, `database_id`, `account_type` e a realm role correspondente.
 
-- issuer;
-- audience;
-- `sub`/`user_id`;
-- `user_type`.
-
-Isso **não é** o mesmo modelo JWKS/RS256 usado pelo Spring com Keycloak.
-
-### `AUTH_REQUIRE_USER_JWT`
-
-Quando `true`, chat/histórico personalizado exigem um token que carregue identidade do usuário.
-
-Se um Bearer compartilhado tentar acessar dados personalizados:
+Se o payload/query enviar `user_id` por compatibilidade e ele não coincidir com o `database_id` assinado:
 
 - 403.
 
-Se o payload enviar `user_id` diferente do token:
-
-- 403.
+`AUTH_BEARER_TOKEN`, JWT HS256 local e `AUTH_REQUIRE_USER_JWT` pertencem a versões antigas do contrato e não são modos aceitos pelo deployment atual.
 
 ### POST `/v1/chat`
 
@@ -81,7 +71,7 @@ Response:
 ### Histórico
 
 ```http
-GET /v1/chat/{thread_id}/history?user_id=42&limit=20&before=<cursor>
+GET /v1/chat/{thread_id}/history?limit=20&before=<cursor>
 ```
 
 - `limit`: 1..100;
@@ -106,8 +96,8 @@ Response:
 | Status | Situação típica |
 | ---: | --- |
 | 200 | chat concluído **ou** input bloqueado pelo guardrail com resposta segura |
-| 401 | Bearer/JWT ausente ou inválido |
-| 403 | user_id não coincide com identidade; shared bearer proibido em modo user-JWT; thread pertence a outro usuário |
+| 401 | JWT Keycloak ausente, inválido, expirado ou com issuer/audience incorreto |
+| 403 | user_id de compatibilidade não coincide com o JWT; thread pertence a outro usuário |
 | 404 | histórico solicitado para thread inexistente |
 | 422 | schema inválido ou cursor `before` inválido |
 | 503 | budget total do provider/LLM excedeu timeout |
