@@ -131,8 +131,8 @@ Grupos principais:
 - MongoDB: `MONGODB_URI`, `MONGODB_DATABASE`;
 - Groq: keys e modelos fast/powerful;
 - NIM: key, modelos, base URL;
-- auth: Bearer/JWT/issuer/audience;
-- MCP: URL, token estático ou caminho JWT experimental, issuer/resource e TTL;
+- auth: issuer Keycloak, audience `ms-ai-server` e JWKS;
+- MCP: URL/resource e encaminhamento do JWT Keycloak autenticado ao Knowledge MCP;
 - timeouts/temperatura.
 
 ## Identidade
