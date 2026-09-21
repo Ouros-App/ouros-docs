@@ -4,7 +4,7 @@ Esta página não é um conjunto de leis eternas. É um registro das decisões q
 
 ## 1. Keycloak como issuer central
 
-**Estado:** adotado pelo fluxo de domínio; outros serviços ainda estão em migração.
+**Estado:** adotado no caminho principal de identidade e nos resource servers usados pelo mobile.
 
 Decisão observada:
 
@@ -20,10 +20,11 @@ Motivo técnico:
 
 Estado observado:
 
-- Spring API já valida JWT Keycloak por JWKS, issuer e audience;
-- Auth Service faz o broker de login e não emite JWT próprio;
-- Telemetry e Knowledge MCP ainda usam Bearer estático;
-- AI Server mantém autenticação própria por Bearer/JWT HS256.
+- Spring API, AI Server, Knowledge MCP e Telemetry validam JWT Keycloak por JWKS, issuer e audience;
+- Auth Service continua como bridge para credenciais legadas e não assina o JWT final;
+- o Android usa `ouros-mobile` com Authorization Code + PKCE;
+- o AI Server encaminha o mesmo JWT do usuário ao Knowledge MCP;
+- Telemetry adiciona uma barreira de autorização: realm role `admin`.
 
 ## 2. Credenciais legadas continuam no banco de negócio
 
@@ -182,13 +183,17 @@ Ouros Docs:
 
 A documentação central deve registrar divergências sem reescrever silenciosamente a realidade.
 
-## 15. Alguns mecanismos de auth ainda são transitórios
+## 15. Exceções de autenticação são isoladas
 
-Existem Bearers estáticos em componentes como Telemetry/MCP e autenticação HS256 própria no AI Server.
+O padrão para usuários é Keycloak + JWT RS256/JWKS/audience.
 
-Eles devem ser tratados como contratos atuais, não como o padrão de novos resource servers. O Spring já demonstra o caminho Keycloak/JWKS/audience adotado para APIs de domínio.
+As exceções atuais são explícitas:
 
-Qualquer migração deve ser compatível e planejada, não uma troca instantânea.
+- `ms-auth-service-broker`: compatibilidade first-party legada durante o rollout;
+- `ms-ai-server-debug`: Direct Access Grant confidencial, exclusivo do console de debug;
+- service clients: Client Credentials para identidade máquina-a-máquina.
+
+Novos clientes mobile/web não devem copiar essas exceções.
 
 ## Como mudar uma decisão
 
