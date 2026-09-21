@@ -120,26 +120,22 @@ NVIDIA_NIM_BASE_URL=https://integrate.api.nvidia.com/v1
 ### Auth
 
 ```text
-AUTH_JWT_ISSUER
-AUTH_JWT_AUDIENCE
-AUTH_REQUIRE_USER_JWT=false
+AUTH_JWT_ISSUER=https://ouros-keycloak.discloud.app/realms/ouros
+AUTH_JWT_AUDIENCE=ms-ai-server
+AUTH_JWKS_URL=
 ```
 
-Quando `AUTH_REQUIRE_USER_JWT=true`, o serviço passa a exigir identidade JWT compatível com o `user_id` da requisição.
+`AUTH_JWKS_URL` é opcional; quando vazio, o serviço deriva `<issuer>/protocol/openid-connect/certs`.
 
 ### MCP
 
-Modo interoperável com o Knowledge MCP atual:
-
 ```text
 MCP_URL=https://ms-midas-mcp.discloud.app/mcp/
-MCP_ACCESS_TOKEN=<mesmo valor de MCP_AUTH_TOKEN no MCP>
-MCP_USER_TYPE=farm_owner
+MCP_RESOURCE_URL=https://ms-midas-mcp.discloud.app/mcp/
+MCP_TOOLS_CACHE_TTL_SECONDS=300
 ```
 
-O AI Server também possui `MCP_JWT_SECRET`, `MCP_JWT_ISSUER_URL`, `MCP_RESOURCE_URL` e TTL para gerar JWT curto por usuário. Porém, o Knowledge MCP atual usa verifier estático e **não aceita esses JWTs**.
-
-Não habilite o modo JWT isoladamente até o MCP possuir verifier compatível.
+O AI Server encaminha o JWT Keycloak autenticado para o Knowledge MCP. Não configure um token estático paralelo.
 
 ## Knowledge MCP
 
@@ -182,11 +178,13 @@ Não use a mesma role para leitura e escrita só para simplificar.
 ### MCP
 
 ```text
-MCP_AUTH_TOKEN              secret, >= 32 chars
 MCP_RESOURCE_URL=http://localhost:8000/mcp
+MCP_JWT_ISSUER=https://ouros-keycloak.discloud.app/realms/ouros
+MCP_JWT_AUDIENCE=ms-mcp-server-ouros-knowledge
+MCP_JWKS_URL=
 ```
 
-Em deploy público, `MCP_RESOURCE_URL` deve refletir a URL pública real do resource server.
+`MCP_JWKS_URL` é opcional e, quando vazio, é derivado do issuer. Em deploy público, `MCP_RESOURCE_URL` deve refletir a URL pública real do resource server.
 
 ## Telemetry Dashboard
 
