@@ -145,11 +145,20 @@ class CallbackHandler(BaseHTTPRequestHandler):
         return
 
 
-def wait_for_callback(timeout: float) -> dict[str, list[str]]:
+def start_callback_listener(timeout: float) -> tuple[ThreadingHTTPServer, threading.Thread]:
+    CallbackState.query = None
     server = ThreadingHTTPServer(("127.0.0.1", 8765), CallbackHandler)
     server.timeout = timeout
     thread = threading.Thread(target=server.handle_request, daemon=True)
     thread.start()
+    return server, thread
+
+
+def wait_for_callback(
+    server: ThreadingHTTPServer,
+    thread: threading.Thread,
+    timeout: float,
+) -> dict[str, list[str]]:
     thread.join(timeout + 1)
     server.server_close()
 
@@ -204,6 +213,8 @@ def main() -> int:
         + urllib.parse.urlencode(params)
     )
 
+    callback_server, callback_thread = start_callback_listener(args.timeout)
+
     print("[1/4] Abrindo o Browser Flow do Keycloak...")
     print("      Faça login e conclua o OTP por e-mail.")
     if args.no_browser or not webbrowser.open(auth_url):
@@ -211,7 +222,11 @@ def main() -> int:
         print(auth_url)
         print()
 
-    callback = wait_for_callback(args.timeout)
+    callback = wait_for_callback(
+        callback_server,
+        callback_thread,
+        args.timeout,
+    )
 
     if "error" in callback:
         description = callback.get("error_description", [""])[0]
