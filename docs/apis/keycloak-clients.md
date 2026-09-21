@@ -39,7 +39,7 @@ O IaC também mantém os clients internos, resource servers e exceções de debu
 
 | Client | Tipo | Audience(s) | Uso |
 | --- | --- | --- | --- |
-| `ouros-mobile` | mobile | `ms-spring-api`, `ms-ai-server`, `ms-telemetry-dashboard-service` | login Android via Authorization Code + PKCE |
+| `ouros-mobile` | mobile | `ms-spring-api`, `ms-ai-server`, `ms-telemetry-dashboard-service`, `ms-mcp-server-ouros-knowledge` | login Android + delegação Midas → MCP via Authorization Code + PKCE |
 | `keycloak-user-storage` | service | `ms-auth-service-internal` | chama Auth interno |
 | `ms-auth-service-broker` | password-broker | conjunto first-party legado | broker de compatibilidade |
 | `ms-ai-server-debug` | password-grant | `ms-ai-server`, `ms-mcp-server-ouros-knowledge` | console de debug interno |
@@ -166,7 +166,7 @@ O Telemetry já valida JWT Keycloak por JWKS, issuer e audience. As rotas atuais
 CLIENT_TYPE=mobile
 CLIENT_ID=ouros-mobile
 REDIRECT_URIS=com.ourosapp.ourosandroidapp:/oauth2redirect|http://127.0.0.1:8765/callback
-AUDIENCES=ms-spring-api|ms-ai-server|ms-telemetry-dashboard-service
+AUDIENCES=ms-spring-api|ms-ai-server|ms-telemetry-dashboard-service|ms-mcp-server-ouros-knowledge
 ```
 
 Características:
@@ -176,7 +176,7 @@ Características:
 - Authorization Code;
 - PKCE S256 obrigatório;
 - Browser Flow com OTP por e-mail quando habilitado;
-- um access token para as três APIs;
+- um access token para as três APIs mobile-facing e para a delegação interna AI Server → Knowledge MCP;
 - redirect Android controlado pelo app;
 - redirect loopback exato reservado ao smoke test operacional.
 
