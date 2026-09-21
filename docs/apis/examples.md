@@ -18,9 +18,11 @@ export TELEMETRY_URL="<telemetry-url>"
 curl -fsS "$KEYCLOAK_ISSUER/.well-known/openid-configuration" | jq
 ```
 
-## Login → Spring API
+## Login legado → Spring API
 
-Obter token sem colocar a senha nos argumentos do `curl`:
+Este exemplo usa o broker legado para diagnóstico. **Não implemente esse fluxo no Android**. O mobile usa Authorization Code + PKCE conforme [Autenticação no Android](../guides/mobile-authentication.md).
+
+Para um diagnóstico legado sem colocar a senha nos argumentos do `curl`:
 
 ```bash
 read -r -p "Email: " OUROS_EMAIL
@@ -49,7 +51,7 @@ curl -fsS "$SPRING_URL/farms" \
   jq
 ```
 
-O broker atual possui audience `ms-spring-api`.
+O broker existe para compatibilidade. Para o fluxo mobile real, use o smoke test `python3 scripts/test-mobile-auth.py --output ./mobile-auth-tokens.json` e apague o arquivo depois do teste.
 
 ## Criar registro de energia
 
@@ -90,37 +92,43 @@ unset OUROS_PASSWORD
 
 ## AI Server
 
-O token depende da configuração do próprio AI Server e **não deve ser assumido como o mesmo token Keycloak do Spring**.
+No fluxo mobile, o mesmo JWT Keycloak usado no Spring também possui audience `ms-ai-server`.
 
 ```bash
-export AI_TOKEN="<token-aceito-pelo-ai-server>"
-
-curl -fsS "$AI_URL/v1/chat"   -H "Authorization: Bearer $AI_TOKEN"   -H 'content-type: application/json'   --data-binary '{
-    "user_id":"42",
+curl -fsS "$AI_URL/v1/chat" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -H 'content-type: application/json' \
+  --data-binary '{
     "message":"Como está meu consumo de energia?"
   }' | jq
 ```
 
+O backend deriva a identidade do JWT; não troque de usuário fornecendo identificadores arbitrários.
+
 ## Histórico Midas
 
 ```bash
-curl -fsS   "$AI_URL/v1/chat/<thread-id>/history?user_id=42&limit=20"   -H "Authorization: Bearer $AI_TOKEN" | jq
+curl -fsS "$AI_URL/v1/chat/<thread-id>/history?limit=20" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" | jq
 ```
 
 ## Telemetry
 
-```bash
-export TELEMETRY_TOKEN="<API_BEARER_TOKEN>"
+O mesmo access token mobile contém a audience do Telemetry. As rotas atuais também exigem role `admin`.
 
-curl -fsS "$TELEMETRY_URL/v1/dashboards"   -H "Authorization: Bearer $TELEMETRY_TOKEN" | jq
+```bash
+curl -fsS "$TELEMETRY_URL/v1/dashboards" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" | jq
 ```
 
-Esse token é estático no contrato atual, não JWT Keycloak.
+Um usuário autenticado sem role `admin` recebe 403.
 
 PNG:
 
 ```bash
-curl -fsS   "$TELEMETRY_URL/v1/dashboards/<dashboard-id>/charts/<chart-id>/png"   -H "Authorization: Bearer $TELEMETRY_TOKEN"   -o chart.png
+curl -fsS "$TELEMETRY_URL/v1/dashboards/<dashboard-id>/charts/<chart-id>/png" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -o chart.png
 ```
 
 ## Knowledge MCP health
@@ -130,7 +138,7 @@ export MCP_URL="https://ms-midas-mcp.discloud.app"
 curl -fsS "$MCP_URL/health" | jq
 ```
 
-Chamadas em `/mcp/` exigem cliente MCP e `Authorization: Bearer <MCP_AUTH_TOKEN>`.
+Chamadas em `/mcp/` exigem cliente MCP e JWT Keycloak com audience `ms-mcp-server-ouros-knowledge`. No caminho normal, o Android não chama o MCP diretamente: o AI Server encaminha o JWT autenticado.
 
 ## Diagnóstico HTTP
 
