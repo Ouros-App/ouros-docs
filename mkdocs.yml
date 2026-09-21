@@ -141,6 +141,7 @@ nav:
       - Secrets: operations/secrets.md
       - Troubleshooting: operations/troubleshooting.md
   - Guias:
+      - Autenticação no Android: guides/mobile-authentication.md
       - Novo endpoint Spring: guides/new-spring-endpoint.md
       - Nova tool Midas: guides/new-mcp-tool.md
       - Nova API com Keycloak: guides/new-keycloak-api.md
