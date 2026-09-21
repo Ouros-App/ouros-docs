@@ -6,7 +6,7 @@ the system browser against Keycloak's Browser Flow. It verifies:
 
 1. Authorization Code + PKCE S256 completes successfully.
 2. The access token is issued to ouros-mobile.
-3. The access token carries all mobile-facing API audiences.
+3. The access token carries all mobile-facing and delegated MCP audiences.
 4. The refresh token can mint a new access token.
 
 Tokens are not printed. Use --output explicitly to persist them for manual API
@@ -39,6 +39,7 @@ EXPECTED_AUDIENCES = {
     "ms-spring-api",
     "ms-ai-server",
     "ms-telemetry-dashboard-service",
+    "ms-mcp-server-ouros-knowledge",
 }
 
 
