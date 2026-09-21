@@ -133,9 +133,14 @@ AUTH_JWKS_URL=
 MCP_URL=https://ms-midas-mcp.discloud.app/mcp/
 MCP_RESOURCE_URL=https://ms-midas-mcp.discloud.app/mcp/
 MCP_TOOLS_CACHE_TTL_SECONDS=300
+MCP_KEYCLOAK_TOKEN_EXCHANGE_URL=https://ouros-keycloak.discloud.app/realms/ouros/protocol/openid-connect/token
+MCP_KEYCLOAK_TOKEN_EXCHANGE_CLIENT_ID=ms-ai-server-mcp-exchange
+MCP_KEYCLOAK_TOKEN_EXCHANGE_CLIENT_SECRET=<valor-do-cofre>
+MCP_KEYCLOAK_TOKEN_EXCHANGE_AUDIENCE=ms-mcp-server-ouros-knowledge
+MCP_KEYCLOAK_TOKEN_EXCHANGE_TIMEOUT_SECONDS=8
 ```
 
-O AI Server encaminha o JWT Keycloak autenticado para o Knowledge MCP. Não configure um token estático paralelo.
+O AI Server troca o JWT autenticado por um token delegado antes de chamar o Knowledge MCP. A credencial do client de exchange fica somente no backend e nunca é exposta ao mobile.
 
 ## Knowledge MCP
 
@@ -181,10 +186,11 @@ Não use a mesma role para leitura e escrita só para simplificar.
 MCP_RESOURCE_URL=http://localhost:8000/mcp
 MCP_JWT_ISSUER=https://ouros-keycloak.discloud.app/realms/ouros
 MCP_JWT_AUDIENCE=ms-mcp-server-ouros-knowledge
+MCP_JWT_AUTHORIZED_PARTY=ms-ai-server-mcp-exchange
 MCP_JWKS_URL=
 ```
 
-`MCP_JWKS_URL` é opcional e, quando vazio, é derivado do issuer. Em deploy público, `MCP_RESOURCE_URL` deve refletir a URL pública real do resource server.
+`MCP_JWKS_URL` é opcional e, quando vazio, é derivado do issuer. `MCP_JWT_AUTHORIZED_PARTY` fixa o `azp` aceito e impede acesso direto com JWT de `ouros-mobile`. Em deploy público, `MCP_RESOURCE_URL` deve refletir a URL pública real do resource server.
 
 ## Telemetry Dashboard
 
