@@ -1,187 +1,127 @@
 # Compatibilidade de tokens e credenciais
 
-Nem todo `Authorization: Bearer ...` no Ouros representa o mesmo tipo de credencial.
+Nem todo `Authorization: Bearer ...` no Ouros representa o mesmo contexto de autenticação. O ecossistema principal usa JWT RS256 emitido pelo Keycloak, mas cada resource server valida a própria audience e pode aplicar autorização adicional.
 
-Esta matriz mostra **o que é aceito por quem** no estado atual.
+## Matriz atual
 
-## Matriz
+| Credencial | Origem | Spring | AI Server | Knowledge MCP | Telemetry | Auth interno |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| JWT `ouros-mobile` | Authorization Code + PKCE | ✅ | ✅ | ✅* | ✅** | ❌ |
+| JWT do broker legado | `ms-auth-service-broker` | ✅ | ✅ | ✅ | ✅** | ❌ |
+| JWT `ms-ai-server-debug` | Direct Grant interno | ❌ | ✅ | ✅ | ❌ | ❌ |
+| service JWT `keycloak-user-storage` | Client Credentials | ❌ | ❌ | ❌ | ❌ | ✅ |
 
-| Credencial | Origem | Spring | Auth público | Auth interno | AI Server | Knowledge MCP | Telemetry | GitHub Manager |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| JWT Keycloak do `/v1/auth/token` | Auth broker / Keycloak | ✅ | n/a | ❌ | ❌* | ❌ | ❌ | ❌ |
-| service JWT `keycloak-user-storage` | Keycloak Client Credentials | ❌ | n/a | ✅ | ❌ | ❌ | ❌ | ❌ |
-| `AUTH_BEARER_TOKEN` | AI Server config | ❌ | n/a | ❌ | ✅ | ❌ | ❌ | ❌ |
-| JWT HS256 do AI Server | secret local do AI | ❌ | n/a | ❌ | ✅ | ❌ | ❌ | ❌ |
-| `MCP_AUTH_TOKEN` | Knowledge MCP config | ❌ | n/a | ❌ | ❌ | ✅ | ❌ | ❌ |
-| `API_BEARER_TOKEN` | Telemetry config | ❌ | n/a | ❌ | ❌ | ❌ | ✅ | ❌ |
-| cookie `session` | GitHub Manager | ❌ | n/a | ❌ | ❌ | ❌ | ❌ | ✅ |
+\* O Android não chama o Knowledge MCP diretamente. A audience existe porque o AI Server encaminha o mesmo JWT ao MCP quando o Midas usa tools.
 
-* O AI Server poderia aceitar um JWT externo **somente se** ele fosse assinado em HS256 com o `AUTH_JWT_SECRET` local e satisfizesse issuer/audience configurados. O JWT Keycloak padrão usa o modelo de chaves/JWKS do Keycloak e não é automaticamente compatível.
+\** O Telemetry autentica o JWT, mas as rotas atuais de dashboard exigem também a realm role `admin`. Usuários autenticados sem essa role recebem `403`.
 
-## 1. JWT Keycloak do usuário
+GitHub Manager e Auto Review usam mecanismos separados, respectivamente cookie de sessão e assinatura HMAC de webhook.
 
-Obtido por:
+## JWT mobile
 
-```http
-POST /v1/auth/token
-```
-
-Caminho:
+O mobile usa:
 
 ```text
-ms-auth-service
-  ↓
-ms-auth-service-broker
-  ↓
-Keycloak
-  ↓ aud=ms-spring-api
-access_token
+client_id     = ouros-mobile
+flow          = Authorization Code + PKCE S256
+redirect_uri  = com.ourosapp.ourosandroidapp:/oauth2redirect
+scopes        = openid ouros-identity
 ```
 
-Uso correto:
+O access token possui as audiences:
 
-```http
-Authorization: Bearer <access_token>
+```text
+ms-spring-api
+ms-ai-server
+ms-telemetry-dashboard-service
+ms-mcp-server-ouros-knowledge
 ```
 
-em `ms-spring-api`.
+As três primeiras são APIs mobile-facing. A quarta permite delegação interna AI Server → Knowledge MCP sem um segundo login.
 
-O Spring valida:
+O refresh token é enviado somente ao endpoint de token do Keycloak.
 
-- assinatura JWKS;
-- issuer;
-- expiração;
-- audience;
-- role.
+## Validação por resource server
 
-## 2. Service JWT do User Storage
+### Spring API
 
-O `keycloak-user-storage` usa Client Credentials e recebe token destinado a:
+Valida assinatura/JWKS, issuer, timestamps e:
+
+```text
+aud contains ms-spring-api
+```
+
+Depois aplica role e ownership de negócio.
+
+### AI Server
+
+Valida JWT RS256 do Keycloak e:
+
+```text
+aud contains ms-ai-server
+```
+
+A identidade autenticada é propagada para o grafo e o access token validado pode ser encaminhado ao Knowledge MCP.
+
+### Knowledge MCP
+
+Valida JWT RS256 do Keycloak e:
+
+```text
+aud contains ms-mcp-server-ouros-knowledge
+```
+
+Não usa token estático como contrato atual.
+
+### Telemetry Dashboard
+
+Valida JWT RS256 do Keycloak e:
+
+```text
+aud contains ms-telemetry-dashboard-service
+realm_access.roles contains admin
+```
+
+Audience válida não concede role.
+
+## Service JWT do User Storage
+
+O client `keycloak-user-storage` usa Client Credentials e recebe token com:
 
 ```text
 aud=ms-auth-service-internal
 ```
 
-Esse token é para:
+Esse token é exclusivo das rotas `/internal/v1/**` do Auth Service. Não representa usuário e nunca deve ir para web/mobile.
+
+## Debug do AI Server
+
+O client `ms-ai-server-debug` é uma exceção operacional:
 
 ```text
-/internal/v1/**
+Direct Access Grant
+aud=ms-ai-server
+aud=ms-mcp-server-ouros-knowledge
 ```
 
-do Auth Service.
+Ele existe apenas para o console `/debug` e não é contrato do aplicativo Android.
 
-Não é token de usuário e não deve ser entregue a web/mobile.
+## Broker legado
 
-## 3. Credencial do AI Server
+`ms-auth-service-broker` continua disponível durante a transição. Ele pode emitir JWTs Keycloak para consumers first-party legados, mas novos clientes mobile não devem chamar `POST /v1/auth/token`.
 
-### Bearer compartilhado
+O caminho novo é sempre Browser Flow + Authorization Code + PKCE.
 
-```text
-AUTH_BEARER_TOKEN
-```
+## Diagnóstico rápido de 401/403
 
-Autentica o cliente, mas não carrega identidade individual.
+Cheque nesta ordem:
 
-Quando `AUTH_REQUIRE_USER_JWT=true`, esse modo não serve para operações personalizadas.
+1. qual serviço recebeu o request;
+2. `iss` do token;
+3. `exp` e `iat`;
+4. se o `aud` contém a audience do serviço;
+5. se a assinatura resolve contra o JWKS do realm;
+6. para `403`, role e ownership exigidos;
+7. se o token foi emitido antes de uma mudança recente de client scopes, gere/renove outro.
 
-### JWT HS256
-
-```text
-AUTH_JWT_SECRET
-AUTH_JWT_ISSUER
-AUTH_JWT_AUDIENCE
-```
-
-É um contrato próprio do AI Server.
-
-Não usa automaticamente o JWKS do Keycloak.
-
-## 4. Credencial MCP
-
-Knowledge MCP atual:
-
-```text
-MCP_AUTH_TOKEN
-```
-
-O verifier faz comparação exata.
-
-Compatibilidade recomendada com AI Server:
-
-```text
-AI Server MCP_ACCESS_TOKEN
-        =
-Knowledge MCP MCP_AUTH_TOKEN
-```
-
-### JWT MCP ainda não interoperável
-
-O AI Server sabe gerar JWT curto via `MCP_JWT_SECRET`.
-
-O Knowledge MCP **não sabe validar esse JWT hoje**.
-
-Resultado se ativar apenas esse caminho:
-
-```text
-AI gera JWT
-   ↓
-MCP compara com string estática
-   ↓
-401 / tools indisponíveis
-```
-
-## 5. Telemetry
-
-Rotas `/v1/dashboards/**` usam:
-
-```text
-API_BEARER_TOKEN
-```
-
-É token estático.
-
-O resource server já existe no Keycloak, mas a aplicação ainda não foi migrada para validar JWT.
-
-## 6. GitHub Manager
-
-Não usa Bearer nas rotas de criação.
-
-Fluxo:
-
-```text
-POST /auth/login
-  ↓
-Set-Cookie: session=...
-  ↓
-cookie assinado
-  ↓
-/templates
-/repositories/**
-```
-
-`/metrics` é exceção e usa `METRICS_TOKEN`.
-
-## 7. Auto Review
-
-Webhook não usa Bearer.
-
-Usa:
-
-```http
-X-Hub-Signature-256: sha256=<hmac>
-```
-
-com o webhook secret do GitHub App.
-
-## Diagnóstico rápido de 401
-
-Pergunte nessa ordem:
-
-1. qual serviço estou chamando?
-2. qual **tipo** de credencial ele aceita?
-3. o token foi emitido para esse audience/resource?
-4. o ambiente usa o mesmo secret/config?
-5. o token expirou?
-6. o usuário possui role/ownership depois de autenticar?
-
-O fato de duas credenciais aparecerem no mesmo header `Authorization: Bearer` não torna elas intercambiáveis.
+Não use `403` como gatilho para relogar. `403` significa que a autenticação passou e a autorização negou a operação.
