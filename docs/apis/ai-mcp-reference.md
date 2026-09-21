@@ -137,7 +137,7 @@ Streamable HTTP, stateless.
 
 ### Auth real
 
-O Knowledge MCP usa `KeycloakTokenVerifier` e valida o mesmo access token de usuário encaminhado pelo AI Server.
+O Knowledge MCP usa `KeycloakTokenVerifier`, mas não aceita o access token bruto do usuário. O AI Server primeiro executa Standard Token Exchange v2 e envia o JWT delegado resultante.
 
 ```text
 issuer   = https://ouros-keycloak.discloud.app/realms/ouros
@@ -149,7 +149,7 @@ JWKS     = <issuer>/protocol/openid-connect/certs
 Authorization: Bearer <keycloak_access_token>
 ```
 
-O verifier exige JWT válido e identidade de negócio assinada: `database_id`, `account_type` e a realm role correspondente.
+O verifier exige JWT válido, `aud=ms-mcp-server-ouros-knowledge`, `azp=ms-ai-server-mcp-exchange` e identidade de negócio assinada: `database_id`, `account_type` e a realm role correspondente. Um JWT do `ouros-mobile` é rejeitado diretamente.
 
 ### Tools
 
@@ -189,16 +189,16 @@ Para tools user-scoped, o AI Server vincula o `user_id` no backend e não o entr
 
 ## Delegação AI Server → MCP
 
-O AI Server não cria uma segunda credencial para o MCP. Ele encaminha o access token Keycloak já validado na request atual.
-
-Por isso o token mobile contém as duas audiences:
+O AI Server mantém o JWT do usuário apenas como `subject_token` da troca. Para abrir a conexão MCP ele autentica o client confidencial `ms-ai-server-mcp-exchange` no token endpoint do Keycloak e solicita:
 
 ```text
-ms-ai-server
-ms-mcp-server-ouros-knowledge
+grant_type = urn:ietf:params:oauth:grant-type:token-exchange
+audience   = ms-mcp-server-ouros-knowledge
 ```
 
-A primeira autoriza a entrada no AI Server. A segunda permite que o Knowledge MCP valide o mesmo JWT durante o uso de tools.
+O JWT mobile possui `aud=ms-ai-server-mcp-exchange` para ser elegível à troca, mas **não** possui a audience do MCP. O token delegado contém `aud=ms-mcp-server-ouros-knowledge` e `azp=ms-ai-server-mcp-exchange`.
+
+Não existe fallback para encaminhar o token mobile diretamente ao MCP.
 
 ## Segurança do escopo
 
