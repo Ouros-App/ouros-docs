@@ -219,10 +219,13 @@ Secrets exigidos em runtime:
 ```text
 DATABRICKS_CLIENT_ID
 DATABRICKS_CLIENT_SECRET
-API_BEARER_TOKEN
+KEYCLOAK_ISSUER_URL
+KEYCLOAK_AUDIENCE
+KEYCLOAK_JWKS_URL
+KEYCLOAK_REQUIRED_ROLE
 ```
 
-Esses valores podem ser carregados do Infisical e por isso não precisam aparecer no `.env.example`.
+Credenciais Databricks podem ser carregadas do Infisical. A configuração Keycloak deve permanecer coerente com o resource server `ms-telemetry-dashboard-service`.
 
 ### CORS
 
