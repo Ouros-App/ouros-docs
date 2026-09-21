@@ -54,7 +54,6 @@ Request:
 
 ```json
 {
-  "user_id": "42",
   "message": "Como está meu consumo de energia?",
   "thread_id": "opcional"
 }
@@ -64,7 +63,7 @@ Regras:
 
 | Campo | Regra |
 | --- | --- |
-| user_id | 1..128 |
+| user_id | opcional, 1..128; se enviado, precisa coincidir com o JWT |
 | message | 1..8000 |
 | thread_id | 1..128; UUID gerado quando omitido |
 
@@ -148,15 +147,19 @@ Streamable HTTP, stateless.
 
 ### Auth real
 
-O verifier atual é `StaticTokenVerifier`.
+O Knowledge MCP usa `KeycloakTokenVerifier` e valida o mesmo access token de usuário encaminhado pelo AI Server.
 
-Ele aceita **somente** um token exatamente igual a `MCP_AUTH_TOKEN` e exige pelo menos 32 caracteres.
-
-```http
-Authorization: Bearer <MCP_AUTH_TOKEN>
+```text
+issuer   = https://ouros-keycloak.discloud.app/realms/ouros
+audience = ms-mcp-server-ouros-knowledge
+JWKS     = <issuer>/protocol/openid-connect/certs
 ```
 
-`GET /` e `GET /health` da aplicação FastAPI são públicos; as chamadas MCP são autenticadas.
+```http
+Authorization: Bearer <keycloak_access_token>
+```
+
+O verifier exige JWT válido e identidade de negócio assinada: `database_id`, `account_type` e a realm role correspondente.
 
 ### Tools
 
@@ -194,31 +197,31 @@ Allowlist atual:
 
 Para tools user-scoped, o AI Server vincula o `user_id` no backend e não o entrega livre ao modelo.
 
-## Incompatibilidade atual: JWT do AI → MCP
+## Delegação AI Server → MCP
 
-O AI Server contém suporte para gerar JWT HS256 curto por usuário quando `MCP_JWT_SECRET` está configurado.
+O AI Server não cria uma segunda credencial para o MCP. Ele encaminha o access token Keycloak já validado na request atual.
 
-Porém, o Knowledge MCP atual **não valida JWT**: `StaticTokenVerifier` só faz comparação exata com `MCP_AUTH_TOKEN`.
+Por isso o token mobile contém as duas audiences:
 
-Consequência:
+```text
+ms-ai-server
+ms-mcp-server-ouros-knowledge
+```
 
-- modo compatível hoje: configurar `MCP_ACCESS_TOKEN` no AI Server com o mesmo valor de `MCP_AUTH_TOKEN` no MCP;
-- o caminho de JWT per-user só funcionará quando o MCP ganhar verifier compatível.
-
-!!! warning
-    Não configure somente `MCP_JWT_SECRET` esperando que o Knowledge MCP atual aceite esses tokens.
+A primeira autoriza a entrada no AI Server. A segunda permite que o Knowledge MCP valide o mesmo JWT durante o uso de tools.
 
 ## Segurança do escopo
 
-Mesmo com token MCP compartilhado:
+Mesmo com autenticação centralizada:
 
 - identidade precisa ter tipo válido;
-- user ID precisa ser inteiro positivo;
+- `database_id` precisa ser inteiro positivo;
 - o AI Server faz binding de identidade;
-- farm IDs explícitos passam por filtros/allowlist;
+- tools user-scoped não recebem user ID livre do modelo;
+- farm IDs passam por filtros/allowlist;
 - write usa função PostgreSQL controlada.
 
-O token compartilhado autentica o **cliente MCP**; ownership de usuário continua sendo responsabilidade da camada de tools/aplicação.
+O JWT autentica a identidade, mas ownership e autorização de dados continuam sendo aplicados pela camada de tools/aplicação.
 
 ## Importação
 
