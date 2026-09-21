@@ -55,21 +55,24 @@ Cheque OAuth, permissões do service principal, workspace e SQL Warehouse.
 
 ## Midas não usa dados pessoais
 
-O AI Server encaminha ao Knowledge MCP o mesmo JWT Keycloak já validado para a request.
+O AI Server usa o JWT validado como `subject_token`, executa Standard Token Exchange v2 no Keycloak e encaminha ao Knowledge MCP apenas o token delegado.
 
 Cheque:
 
 - `MCP_URL` e `MCP_RESOURCE_URL` no AI Server;
-- o access token contém `aud=ms-ai-server` **e** `aud=ms-mcp-server-ouros-knowledge`;
+- o JWT recebido do mobile contém `aud=ms-ai-server` e `aud=ms-ai-server-mcp-exchange`, mas **não** `aud=ms-mcp-server-ouros-knowledge`;
+- no AI Server, o client de exchange configurado é `ms-ai-server-mcp-exchange`;
+- a troca retorna um JWT com `aud=ms-mcp-server-ouros-knowledge` e `azp=ms-ai-server-mcp-exchange`;
 - no MCP, `MCP_JWT_ISSUER` aponta para o realm correto;
 - `MCP_JWT_AUDIENCE=ms-mcp-server-ouros-knowledge`;
+- `MCP_JWT_AUTHORIZED_PARTY=ms-ai-server-mcp-exchange`;
 - `MCP_JWKS_URL`, quando sobrescrito, aponta para o JWKS do mesmo issuer;
 - claims `database_id`, `account_type` e realm role coerente;
 - allowlist do agente;
 - `MIDAS_DATABASE_URL`;
 - ownership/escopo da farm.
 
-Se AI Server aceita o token mas as tools falham com 401, valide primeiro a audience interna do MCP. Não introduza token estático paralelo.
+Se o AI Server aceita o token mas as tools falham, diferencie falha de **exchange** de 401 no MCP. Não reintroduza fallback que encaminhe o JWT mobile diretamente nem token estático paralelo.
 
 ## Midas responde sem IA
 
