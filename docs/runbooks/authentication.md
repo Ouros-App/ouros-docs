@@ -1,146 +1,166 @@
 # Runbook: falha de autenticação
 
-Use quando login falha ou aparecem 401/403 em massa.
+Use quando login, refresh ou chamadas autenticadas começam a falhar.
 
-## 1. Identifique o serviço
+## Mapa atual
 
-Antes de olhar claims, descubra **qual mecanismo de autenticação a rota usa**.
-
-| Serviço | Mecanismo |
+| Componente | Mecanismo |
 | --- | --- |
-| Spring API | JWT Keycloak via JWKS + audience |
-| Auth público | credenciais humanas / sem Bearer |
-| Auth interno | service JWT Keycloak |
-| AI Server | Bearer estático ou JWT HS256 local |
-| Knowledge MCP | Bearer estático |
-| Telemetry | Bearer estático |
+| Android | Authorization Code + PKCE S256 + Browser Flow |
+| Spring API | JWT Keycloak, audience `ms-spring-api` |
+| AI Server | JWT Keycloak, audience `ms-ai-server` |
+| Knowledge MCP | JWT Keycloak, audience `ms-mcp-server-ouros-knowledge` |
+| Telemetry | JWT Keycloak, audience própria + role `admin` |
+| Auth interno | service JWT `keycloak-user-storage` |
+| AI Debug | Direct Grant isolado em `ms-ai-server-debug` |
 | GitHub Manager | cookie de sessão |
 | Auto Review | HMAC de webhook |
 
 Veja [Compatibilidade de tokens](../apis/token-compatibility.md).
 
-## 2. Login first-party não emite token
+## Mobile: login não conclui
 
-Fluxo:
+Fluxo esperado:
 
 ```text
-Client → Auth Service → Keycloak → User Storage/Auth → PostgreSQL
+Android
+  → Keycloak Browser Flow
+  → senha validada via User Storage
+  → OTP por e-mail
+  → authorization code
+  → code + PKCE verifier
+  → access + refresh + id token
 ```
 
 Cheque:
 
-1. `GET /health`;
-2. `GET /ready`;
-3. PostgreSQL;
-4. Redis/rate limiter;
-5. Keycloak issuer/token endpoint;
-6. client `ms-auth-service-broker`;
-7. broker secret;
-8. User Storage.
+1. client `ouros-mobile` existe;
+2. Standard Flow está ativo;
+3. PKCE S256 está obrigatório;
+4. redirect URI usado é exatamente o cadastrado;
+5. SMTP do realm está configurado;
+6. `OUROS_EMAIL_OTP_ENABLED=true`;
+7. User Storage consegue consultar o Auth Service;
+8. usuário possui e-mail válido;
+9. logs do Keycloak mostram o evento de login.
 
-### 429
+O app não deve enviar senha diretamente ao endpoint de token.
 
-Respeite `Retry-After`.
+## OTP não chega
 
-Não desative o limiter para “testar”.
-
-## 3. Token existe, Spring responde 401
-
-Cheque o JWT:
-
-- assinatura;
-- `iss`;
-- `exp`;
-- `aud` contém `ms-spring-api`;
-- JWKS acessível;
-- uma role reconhecida existe.
-
-O token retornado por `/v1/auth/token` deve vir do broker com audience do Spring.
-
-Se o token foi emitido antes de uma mudança de client scope/audience, gere um token novo.
-
-## 4. Spring responde 403
-
-Autenticação passou. O problema agora é autorização.
-
-Cheque:
-
-- role;
-- `database_id`/lookup local;
-- enterprise do funcionário;
-- farm do produtor;
-- ownership do recurso.
-
-Exemplo:
-
-> um FARM_OWNER autenticado não ganha direito de editar outra fazenda apenas porque conhece o ID.
-
-## 5. Auth interno responde 401
-
-Cheque o service token de `keycloak-user-storage`:
-
-- issuer;
-- audience `ms-auth-service-internal`;
-- client autorizado;
-- expiração.
-
-## 6. Auth interno responde 403
-
-Na rota interna de credencial, 403 significa **credencial humana inválida**.
-
-O 401 é reservado para a autenticação do serviço.
-
-## 7. AI Server
-
-### 401
-
-Cheque:
-
-- `AUTH_BEARER_TOKEN`; ou
-- `AUTH_JWT_SECRET` + issuer/audience.
-
-O AI Server não usa automaticamente o JWKS Keycloak.
-
-### 403
-
-Com `AUTH_REQUIRE_USER_JWT=true`:
-
-- token compartilhado não basta para dados pessoais;
-- `user_id` do request precisa coincidir com a identidade autenticada.
-
-## 8. Knowledge MCP
-
-O verifier atual aceita apenas igualdade com `MCP_AUTH_TOKEN`.
-
-Se o AI Server estiver configurado somente com `MCP_JWT_SECRET`, as tools podem desaparecer/falhar porque o MCP não valida esse JWT.
-
-Modo interoperável atual:
+Cheque no Keycloak:
 
 ```text
-AI MCP_ACCESS_TOKEN == MCP MCP_AUTH_TOKEN
+OUROS_SMTP_HOST
+OUROS_SMTP_PORT
+OUROS_SMTP_AUTH
+OUROS_SMTP_STARTTLS
+OUROS_SMTP_SSL
+OUROS_SMTP_USER
+OUROS_SMTP_PASSWORD
+OUROS_SMTP_FROM
+OUROS_EMAIL_OTP_ENABLED
+OUROS_EMAIL_OTP_HMAC_SECRET
 ```
 
-## 9. Telemetry
+O reconciliador recusa habilitar OTP sem SMTP.
 
-Rotas de negócio usam `API_BEARER_TOKEN`.
+Valores padrão do desafio:
 
-- token ausente/errado: 401;
-- token não configurado no servidor: 503.
+- expiração: 300 s;
+- máximo: 5 tentativas;
+- cooldown de reenvio: 30 s.
 
-Não use o access token Keycloak do Spring esperando compatibilidade.
+Nunca registre o OTP em logs.
 
-## 10. GitHub Manager
+## Token existe, API responde 401
 
-Rotas de negócio dependem do cookie `session`.
+Cheque:
 
-Se login funciona mas API retorna 401:
-
-- confirme armazenamento/envio do cookie;
-- Secure em HTTPS;
+- assinatura RS256;
+- `iss=https://ouros-keycloak.discloud.app/realms/ouros`;
 - expiração;
-- `SESSION_SECRET` consistente após restart/redeploy.
+- JWKS acessível;
+- audience esperada.
 
-## 11. Evidências úteis
+Audiences:
+
+```text
+Spring     → ms-spring-api
+AI Server  → ms-ai-server
+MCP        → ms-mcp-server-ouros-knowledge
+Telemetry  → ms-telemetry-dashboard-service
+```
+
+Se uma configuração de client/audience acabou de mudar, renove o token.
+
+## API responde 403
+
+A autenticação passou. Não faça novo login automaticamente.
+
+Cheque:
+
+- realm role;
+- `account_type`;
+- `database_id`;
+- ownership do recurso;
+- escopo de fazenda/empresa.
+
+No Telemetry, as rotas de dashboard atualmente exigem `admin`. Um usuário mobile comum pode estar autenticado corretamente e receber 403.
+
+## Midas autentica no AI Server, mas tools somem/falham
+
+O AI Server encaminha o mesmo access token ao Knowledge MCP.
+
+Cheque se o token contém simultaneamente:
+
+```text
+ms-ai-server
+ms-mcp-server-ouros-knowledge
+```
+
+Depois confirme issuer/JWKS no MCP.
+
+## Refresh falha
+
+O refresh token conversa somente com o Keycloak.
+
+Cheque:
+
+- `client_id=ouros-mobile`;
+- refresh token ainda válido;
+- sessão não revogada;
+- client ainda habilitado.
+
+Se o refresh não puder mais renovar a sessão, o mobile deve limpar tokens locais e iniciar um novo Browser Flow.
+
+## Auth interno falha
+
+O User Storage usa:
+
+```text
+client=keycloak-user-storage
+aud=ms-auth-service-internal
+```
+
+Um 401 nas rotas internas aponta para autenticação service-to-service. Credencial humana inválida é tratada separadamente pelo bridge de identidade.
+
+## Debug do AI Server falha
+
+O console `/debug` usa `ms-ai-server-debug`, não `ouros-mobile`.
+
+Cheque:
+
+- `DEBUG_UI_ENABLED=true`;
+- client ID;
+- client secret atual;
+- Direct Access Grant;
+- token endpoint;
+- audience do AI Server e do Knowledge MCP.
+
+Não use esse fluxo no Android.
+
+## Evidências úteis
 
 Guarde sem secrets:
 
@@ -148,17 +168,10 @@ Guarde sem secrets:
 - serviço/rota;
 - status;
 - request ID;
-- issuer esperado;
-- audiences do token;
 - client ID;
-- role;
+- issuer;
+- audiences;
+- role/account type;
 - versão/commit.
 
-Nunca copie o token inteiro.
-
-## 12. Depois do incidente
-
-- reproduza em teste;
-- corrija readiness/alerta quando aplicável;
-- atualize docs;
-- remova workaround temporário.
+Nunca copie access token, refresh token, client secret, senha ou OTP para logs/tickets.
