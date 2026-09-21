@@ -51,7 +51,15 @@ curl -fsS "$SPRING_URL/farms" \
   jq
 ```
 
-O broker existe para compatibilidade. Para o fluxo mobile real, use o smoke test `python3 scripts/test-mobile-auth.py --output ./mobile-auth-tokens.json` e apague o arquivo depois do teste.
+O broker existe para compatibilidade. Para o fluxo mobile real, gere um token pelo Browser Flow + PKCE e carregue-o antes dos exemplos seguintes:
+
+```bash
+python3 scripts/test-mobile-auth.py --output ./mobile-auth-tokens.json
+ACCESS_TOKEN="$(jq -er '.initial.access_token' ./mobile-auth-tokens.json)"
+trap 'rm -f ./mobile-auth-tokens.json' EXIT
+```
+
+O arquivo contém access/refresh/id token e deve existir apenas durante o diagnóstico.
 
 ## Criar registro de energia
 
