@@ -55,19 +55,21 @@ Cheque OAuth, permissões do service principal, workspace e SQL Warehouse.
 
 ## Midas não usa dados pessoais
 
+O AI Server encaminha ao Knowledge MCP o mesmo JWT Keycloak já validado para a request.
+
 Cheque:
 
-- `MCP_URL`;
-- `MCP_ACCESS_TOKEN` no AI Server;
-- `MCP_AUTH_TOKEN` no Knowledge MCP;
-- os dois tokens precisam ser exatamente iguais no contrato atual;
-- identidade numérica;
+- `MCP_URL` e `MCP_RESOURCE_URL` no AI Server;
+- o access token contém `aud=ms-ai-server` **e** `aud=ms-mcp-server-ouros-knowledge`;
+- no MCP, `MCP_JWT_ISSUER` aponta para o realm correto;
+- `MCP_JWT_AUDIENCE=ms-mcp-server-ouros-knowledge`;
+- `MCP_JWKS_URL`, quando sobrescrito, aponta para o JWKS do mesmo issuer;
+- claims `database_id`, `account_type` e realm role coerente;
 - allowlist do agente;
 - `MIDAS_DATABASE_URL`;
-- ownership da farm.
+- ownership/escopo da farm.
 
-!!! warning
-    O Knowledge MCP atual não aceita JWT MCP. O caminho `MCP_JWT_SECRET` do AI Server só deve ser usado quando o MCP ganhar verifier JWT compatível.
+Se AI Server aceita o token mas as tools falham com 401, valide primeiro a audience interna do MCP. Não introduza token estático paralelo.
 
 ## Midas responde sem IA
 
