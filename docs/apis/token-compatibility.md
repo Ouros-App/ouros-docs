@@ -6,12 +6,12 @@ Nem todo `Authorization: Bearer ...` no Ouros representa o mesmo contexto de aut
 
 | Credencial | Origem | Spring | AI Server | Knowledge MCP | Telemetry | Auth interno |
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
-| JWT `ouros-mobile` | Authorization Code + PKCE | ✅ | ✅ | ✅* | ✅** | ❌ |
+| JWT `ouros-mobile` | Authorization Code + PKCE | ✅ | ✅ | ✅* | ❌ | ❌ |
 | JWT do broker legado | `ms-auth-service-broker` | ✅ | ✅ | ✅ | ✅** | ❌ |
 | JWT `ms-ai-server-debug` | Direct Grant interno | ❌ | ✅ | ✅ | ❌ | ❌ |
 | service JWT `keycloak-user-storage` | Client Credentials | ❌ | ❌ | ❌ | ❌ | ✅ |
 
-\* O Android não chama o Knowledge MCP diretamente. A audience existe porque o AI Server encaminha o mesmo JWT ao MCP quando o Midas usa tools.
+\* O Android usa Telemetry apenas onde a role/autorização de negócio permitir. O Knowledge MCP não aceita diretamente o JWT mobile.
 
 \** O Telemetry autentica o JWT, mas as rotas atuais de dashboard exigem também a realm role `admin`. Usuários autenticados sem essa role recebem `403`.
 
@@ -34,10 +34,10 @@ O access token possui as audiences:
 ms-spring-api
 ms-ai-server
 ms-telemetry-dashboard-service
-ms-mcp-server-ouros-knowledge
+ms-ai-server-mcp-exchange
 ```
 
-As três primeiras são APIs mobile-facing. A quarta permite delegação interna AI Server → Knowledge MCP sem um segundo login.
+As três primeiras são APIs mobile-facing. A quarta torna o token elegível como `subject_token` para o client confidencial de exchange do AI Server. Ela não autoriza acesso direto ao MCP.
 
 O refresh token é enviado somente ao endpoint de token do Keycloak.
 
@@ -61,14 +61,14 @@ Valida JWT RS256 do Keycloak e:
 aud contains ms-ai-server
 ```
 
-A identidade autenticada é propagada para o grafo e o access token validado pode ser encaminhado ao Knowledge MCP.
+A identidade autenticada é propagada para o grafo. Antes de chamar o Knowledge MCP, o AI Server troca o access token por um JWT delegado e downscoped.
 
 ### Knowledge MCP
 
 Valida JWT RS256 do Keycloak e:
 
 ```text
-aud contains ms-mcp-server-ouros-knowledge
+aud contains ms-ai-server-mcp-exchange
 ```
 
 Não usa token estático como contrato atual.
@@ -102,6 +102,7 @@ O client `ms-ai-server-debug` é uma exceção operacional:
 Direct Access Grant
 aud=ms-ai-server
 aud=ms-mcp-server-ouros-knowledge
+azp=ms-ai-server-mcp-exchange
 ```
 
 Ele existe apenas para o console `/debug` e não é contrato do aplicativo Android.
