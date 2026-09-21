@@ -25,10 +25,12 @@ O `ouros-mobile` recebe um único access token com as audiences:
 ms-spring-api
 ms-ai-server
 ms-telemetry-dashboard-service
-ms-mcp-server-ouros-knowledge
+ms-ai-server-mcp-exchange
 ```
 
-As três primeiras são APIs chamadas diretamente pelo Android. A quarta é uma audience interna: o AI Server encaminha o mesmo JWT ao Knowledge MCP quando o Midas usa tools. O mobile não chama esse MCP diretamente e não precisa tratar essa audience de forma especial.
+As três primeiras são APIs chamadas diretamente pelo Android. A quarta não é uma API mobile-facing: ela autoriza somente o **AI Server** a usar esse token como `subject_token` em um Standard Token Exchange v2 autenticado pelo client confidencial `ms-ai-server-mcp-exchange`.
+
+O Android **não** recebe `aud=ms-mcp-server-ouros-knowledge`, não conhece o secret do client de exchange e não consegue chamar o Knowledge MCP diretamente.
 
 O mesmo access token é enviado como Bearer às três APIs mobile-facing:
 
@@ -204,7 +206,7 @@ Espera audience:
 ms-telemetry-dashboard-service
 ```
 
-O mesmo token mobile já carrega essa audience.
+O token mobile não carrega essa audience. O AI Server troca o token no Keycloak e só então recebe um JWT delegado com `aud=ms-mcp-server-ouros-knowledge`.
 
 !!! warning "Autorização atual do Dashboard"
     As rotas atuais do `ms-telemetry-dashboard-service` exigem a realm role `admin`. Portanto, um token de `farm_owner` ou `company_employee` pode estar perfeitamente autenticado e ainda receber `403 Forbidden`. Isso é intencional enquanto o serviço expõe dashboards globais. Não contorne o `403` no app e não faça novo login. Dashboards user-scoped exigem uma mudança de backend separada.
@@ -262,7 +264,7 @@ Ele:
 3. permite senha + OTP no navegador;
 4. captura o callback local;
 5. troca o authorization code por access/refresh/id token;
-6. valida as três audiences mobile-facing e a audience interna do Knowledge MCP;
+6. valida as três audiences mobile-facing e a audience do requester confidencial de token exchange;
 7. usa o refresh token;
 8. valida o novo access token.
 
