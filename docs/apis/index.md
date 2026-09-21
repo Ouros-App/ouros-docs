@@ -14,9 +14,9 @@ Esta seção é a referência de integração entre clientes e serviços. O obje
 | `ms-spring-api` | REST/OpenAPI | domínio transacional | **JWT Keycloak** com issuer + JWKS + audience `ms-spring-api` |
 | `ms-auth-service` | REST | login, credenciais e bridge de identidade | rotas públicas + JWT de serviço nas rotas internas |
 | `ouros-keycloak` | OIDC/OAuth2 | tokens, roles, audiences e federação | protocolos Keycloak |
-| `ms-ai-server` | REST | chat Midas e histórico | Bearer compartilhado **ou** JWT HS256 configurável |
-| Knowledge MCP | MCP Streamable HTTP | conhecimento, contexto e importação | Bearer estático compartilhado |
-| Telemetry | REST | dashboards Databricks e renderização | Bearer estático em rotas de negócio |
+| `ms-ai-server` | REST | chat Midas e histórico | JWT Keycloak, audience `ms-ai-server` |
+| Knowledge MCP | MCP Streamable HTTP | conhecimento, contexto e importação | JWT Keycloak, audience `ms-mcp-server-ouros-knowledge` |
+| Telemetry | REST | dashboards Databricks e renderização | JWT Keycloak, audience própria + role `admin` |
 | GitHub Manager | REST + UI | criação/padronização de repos | cookie de sessão assinado |
 | Auto Review | webhook HTTP | revisão automática de PRs | assinatura HMAC do GitHub |
 
