@@ -25,13 +25,15 @@ O client mobile de produção é versionado em:
 iac/resources/ouros-mobile.conf
 ```
 
-Ele referencia audiences já gerenciadas pelos resource servers:
+As três APIs chamadas diretamente pelo Android são:
 
 ```text
 ms-spring-api
 ms-ai-server
 ms-telemetry-dashboard-service
 ```
+
+Essa lista é apenas a superfície mobile-facing. A configuração completa do client também inclui `ms-mcp-server-ouros-knowledge`, usada internamente quando o AI Server delega tools ao Knowledge MCP.
 
 O IaC também mantém os clients internos, resource servers e exceções de debug necessários para o ecossistema.
 
