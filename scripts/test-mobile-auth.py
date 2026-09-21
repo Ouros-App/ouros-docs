@@ -31,10 +31,18 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
+from jwt import InvalidTokenError, PyJWKClient, decode
+from jwt.exceptions import (
+    PyJWKClientConnectionError,
+    PyJWKClientError,
+    PyJWKSetError,
+)
+
 ISSUER = "https://ouros-keycloak.discloud.app/realms/ouros"
 CLIENT_ID = "ouros-mobile"
 REDIRECT_URI = "http://127.0.0.1:8765/callback"
 SCOPES = "openid ouros-identity"
+DISCOVERY_URL = f"{ISSUER}/.well-known/openid-configuration"
 EXPECTED_AUDIENCES = {
     "ms-spring-api",
     "ms-ai-server",
@@ -47,17 +55,31 @@ def b64url(data: bytes) -> str:
     return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
 
 
-def decode_jwt_payload(token: str) -> dict[str, Any]:
+def oidc_discovery() -> dict[str, Any]:
+    request = urllib.request.Request(
+        DISCOVERY_URL,
+        headers={"Accept": "application/json"},
+        method="GET",
+    )
     try:
-        payload = token.split(".")[1]
-        payload += "=" * (-len(payload) % 4)
-        decoded = base64.urlsafe_b64decode(payload.encode("ascii"))
-        value = json.loads(decoded)
-    except (IndexError, ValueError, json.JSONDecodeError) as exc:
-        raise RuntimeError("Keycloak returned a malformed JWT") from exc
-    if not isinstance(value, dict):
-        raise RuntimeError("JWT payload is not an object")
-    return value
+        with urllib.request.urlopen(request, timeout=15) as response:
+            payload = json.load(response)
+    except urllib.error.URLError as exc:
+        raise RuntimeError(f"Could not load OIDC discovery: {exc.reason}") from exc
+    except json.JSONDecodeError as exc:
+        raise RuntimeError("OIDC discovery returned invalid JSON") from exc
+
+    if not isinstance(payload, dict):
+        raise RuntimeError("OIDC discovery returned an unexpected response")
+    if payload.get("issuer") != ISSUER:
+        raise RuntimeError(
+            f"OIDC discovery issuer mismatch: {payload.get('issuer')!r}"
+        )
+
+    jwks_uri = payload.get("jwks_uri")
+    if not isinstance(jwks_uri, str) or not jwks_uri.startswith("https://"):
+        raise RuntimeError("OIDC discovery did not provide a valid HTTPS jwks_uri")
+    return payload
 
 
 def token_post(data: dict[str, str]) -> dict[str, Any]:
@@ -93,19 +115,46 @@ def audience_set(claims: dict[str, Any]) -> set[str]:
     return set()
 
 
-def validate_access_token(token: str, *, label: str) -> dict[str, Any]:
-    claims = decode_jwt_payload(token)
-    audiences = audience_set(claims)
-    missing = EXPECTED_AUDIENCES - audiences
-
-    if claims.get("iss") != ISSUER:
-        raise RuntimeError(
-            f"{label}: unexpected issuer {claims.get('iss')!r}; expected {ISSUER!r}"
+def validate_access_token(
+    token: str,
+    *,
+    label: str,
+    jwks_client: PyJWKClient,
+) -> dict[str, Any]:
+    try:
+        signing_key = jwks_client.get_signing_key_from_jwt(token)
+        claims = decode(
+            token,
+            signing_key.key,
+            algorithms=["RS256"],
+            issuer=ISSUER,
+            audience=list(EXPECTED_AUDIENCES),
+            options={"require": ["exp", "iat", "iss", "aud", "sub"]},
         )
+    except (
+        InvalidTokenError,
+        PyJWKClientConnectionError,
+        PyJWKClientError,
+        PyJWKSetError,
+        ValueError,
+        TypeError,
+    ) as exc:
+        raise RuntimeError(f"{label}: invalid signed Keycloak JWT") from exc
+
+    if not isinstance(claims, dict):
+        raise RuntimeError(f"{label}: JWT claims are not an object")
+
+    subject = claims.get("sub")
+    if not isinstance(subject, str) or not subject.strip():
+        raise RuntimeError(f"{label}: missing or invalid sub")
+
     if claims.get("azp") != CLIENT_ID:
         raise RuntimeError(
             f"{label}: unexpected azp {claims.get('azp')!r}; expected {CLIENT_ID!r}"
         )
+
+    audiences = audience_set(claims)
+    missing = EXPECTED_AUDIENCES - audiences
     if missing:
         raise RuntimeError(
             f"{label}: missing audiences: {', '.join(sorted(missing))}; "
@@ -170,6 +219,8 @@ def wait_for_callback(
 def write_tokens(path: Path, tokens: dict[str, Any]) -> None:
     flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
     fd = os.open(path, flags, 0o600)
+    if hasattr(os, "fchmod"):
+        os.fchmod(fd, 0o600)
     with os.fdopen(fd, "w", encoding="utf-8") as handle:
         json.dump(tokens, handle, indent=2)
         handle.write("\n")
@@ -194,6 +245,13 @@ def main() -> int:
         help="explicitly save token responses to a local mode-0600 JSON file",
     )
     args = parser.parse_args()
+
+    discovery = oidc_discovery()
+    jwks_client = PyJWKClient(
+        discovery["jwks_uri"],
+        cache_keys=True,
+        lifespan=300,
+    )
 
     verifier = secrets.token_urlsafe(64)
     challenge = b64url(hashlib.sha256(verifier.encode("ascii")).digest())
@@ -262,7 +320,11 @@ def main() -> int:
     if not isinstance(id_token, str) or not id_token:
         raise RuntimeError("Keycloak did not return id_token")
 
-    claims = validate_access_token(access_token, label="initial access token")
+    claims = validate_access_token(
+        access_token,
+        label="initial access token",
+        jwks_client=jwks_client,
+    )
     print("[3/4] Access token válido para o contrato mobile:")
     print(f"      sub={claims.get('sub')}")
     print(f"      account_type={claims.get('account_type')}")
@@ -282,8 +344,9 @@ def main() -> int:
     refreshed_claims = validate_access_token(
         refreshed_access,
         label="refreshed access token",
+        jwks_client=jwks_client,
     )
-    if refreshed_claims.get("sub") != claims.get("sub"):
+    if refreshed_claims["sub"] != claims["sub"]:
         raise RuntimeError("Refresh changed the authenticated subject")
 
     print("[4/4] Refresh token válido e novo access token emitido.")
