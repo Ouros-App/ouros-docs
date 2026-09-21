@@ -2,75 +2,90 @@
 
 ## Estado atual
 
-Keycloak já é o issuer central para o fluxo de domínio:
+Keycloak é o issuer central de identidade do Ouros. O aplicativo Android usa um client público próprio, `ouros-mobile`, com Authorization Code + PKCE S256 e Browser Flow.
 
 ```mermaid
 flowchart LR
-    CLIENT[Cliente] --> AUTH[ms-auth-service /v1/auth/token]
-    AUTH --> KC[Keycloak]
-    KC -->|JWT aud=ms-spring-api| AUTH
-    AUTH -->|access + refresh| CLIENT
-    CLIENT --> SPRING[ms-spring-api]
-    SPRING -->|JWKS + issuer + audience| KC
+    APP[Ouros Android] -->|Authorization Code + PKCE| KC[Keycloak]
+    KC -->|User Storage| AUTH[ms-auth-service interno]
+    AUTH --> DB[(PostgreSQL legado)]
+    KC -->|access + refresh + id token| APP
+    APP -->|Bearer: mesmo access token| SPRING[ms-spring-api]
+    APP -->|Bearer: mesmo access token| AI[ms-ai-server]
+    APP -->|Bearer: mesmo access token| DASH[ms-telemetry-dashboard-service]
 ```
 
-O PostgreSQL continua armazenando identidades/hashes legados, acessados pelo User Storage através do Auth Service.
+O PostgreSQL continua armazenando identidades e hashes legados. O User Storage do Keycloak consulta o `ms-auth-service` por uma rota interna autenticada.
+
+## Login mobile
+
+Contrato:
+
+```text
+client_id:    ouros-mobile
+redirect_uri: com.ourosapp.ourosandroidapp:/oauth2redirect
+flow:         Authorization Code + PKCE S256
+scopes:       openid ouros-identity
+client secret: nenhum
+```
+
+Quando o OTP por e-mail está habilitado, senha + OTP fazem parte do mesmo Browser Flow. Depois de concluído o login, o app não repete autenticação para cada microserviço.
+
+O access token do mobile carrega:
+
+```text
+aud:
+  - ms-spring-api
+  - ms-ai-server
+  - ms-telemetry-dashboard-service
+```
+
+O refresh token conversa somente com o Keycloak.
+
+Veja o tutorial de implementação: [Autenticação no Android](../guides/mobile-authentication.md).
+
+## Resource servers
+
+| Serviço | Audience exigida | Observação |
+| --- | --- | --- |
+| `ms-spring-api` | `ms-spring-api` | JWT via Spring Security/JWKS |
+| `ms-ai-server` | `ms-ai-server` | JWT RS256 via JWKS |
+| `ms-telemetry-dashboard-service` | `ms-telemetry-dashboard-service` | JWT RS256 via JWKS; rotas atuais ainda exigem role `admin` |
+
+Cada serviço valida a própria audience. Um token multi-audience continua passando pela validação porque contém a audience específica de cada resource server.
 
 ## Responsabilidades
 
 ### Keycloak
 
-- access/refresh tokens;
+- Browser Flow;
+- OTP por e-mail quando habilitado;
+- Authorization Code + PKCE;
+- access/refresh/id tokens;
 - roles;
 - audiences;
 - OIDC discovery;
 - JWKS;
-- clients/service accounts.
+- clients e scopes.
 
 ### Auth Service
 
-- lookup legado;
-- bcrypt;
-- rate limit;
+- lookup de identidade legado;
+- validação de senha do banco legado;
 - User Storage bridge;
-- broker de login first-party.
+- rotas internas usadas pelo Keycloak;
+- broker legado enquanto existir compatibilidade.
 
-Não assina o JWT final.
+O Auth Service não assina o JWT final.
 
-### Spring API
+### Aplicativo mobile
 
-Já é OAuth2 Resource Server.
-
-Valida:
-
-- JWKS;
-- issuer;
-- timestamps;
-- `aud=ms-spring-api`;
-- role reconhecida.
-
-Não possui mais endpoints locais de login na `main` atual.
-
-## Login first-party
-
-```mermaid
-sequenceDiagram
-    participant C as Client
-    participant A as Auth
-    participant K as Keycloak
-    participant P as PostgreSQL
-
-    C->>A: POST /v1/auth/token
-    A->>K: password grant (broker)
-    K->>A: User Storage lookup/verify
-    A->>P: identity + bcrypt
-    P-->>A: identity
-    A-->>K: valid
-    K-->>A: JWT/refresh
-    A-->>C: tokens
-```
-
-O broker solicita `openid ouros-identity` e possui audience `ms-spring-api`.
+- inicia o Browser Flow;
+- mantém `state`/PKCE através da biblioteca OIDC;
+- armazena tokens com proteção do Android;
+- envia o access token como Bearer;
+- faz refresh silencioso;
+- não possui client secret.
 
 ## Claims principais
 
@@ -83,56 +98,30 @@ O broker solicita `openid ouros-identity` e possui audience `ms-spring-api`.
 | `enterprise_id` | vínculo de empresa |
 | `first_access` | estado de primeiro acesso |
 | `realm_access.roles` | roles do realm |
-| `resource_access` | roles por client |
-| `aud` | resource server destinatário |
+| `aud` | resource servers que podem aceitar o token |
 
 Não trate `sub` e `database_id` como equivalentes.
 
-## Roles aceitas pelo Spring
-
-Mapeamento:
-
-```text
-ADMIN / ADM → ADM
-COMPANY_EMPLOYEE → COMPANY_EMPLOYEE
-FARM_OWNER → FARM_OWNER
-```
-
-O Spring aceita role de realm, resource client ou claim simples `role`.
-
 ## Service-to-service
 
-O User Storage chama Auth interno com service JWT.
+O User Storage chama o Auth Service com service JWT próprio:
 
-Contrato:
+```text
+client: keycloak-user-storage
+aud:    ms-auth-service-internal
+```
 
-- audience `ms-auth-service-internal`;
-- client `keycloak-user-storage`.
+Esse token representa uma aplicação, não um usuário.
 
-Senha de usuário nunca deve ser reutilizada como credencial de serviço.
+## Clients internos e legado
 
-## Outros mecanismos ainda existentes
+`ms-ai-server-debug` é uma exceção interna com Direct Access Grant para o console de debug. Não pertence ao mobile.
 
-A migração de identidade não está uniforme em todo o ecossistema:
-
-- Telemetry: Bearer estático;
-- Knowledge MCP: Bearer estático;
-- AI Server: Bearer compartilhado ou JWT HS256 local.
-
-Esses mecanismos são contratos atuais, mas não devem ser copiados como padrão de novos resource servers.
-
-## Browser/mobile
-
-O IaC suporta:
-
-- web: Authorization Code + PKCE;
-- mobile: Authorization Code + PKCE.
-
-No snapshot atual, clients web/mobile ativos ainda não aparecem em `iac/resources/`; existem exemplos/suporte no reconciliador.
+`ms-auth-service-broker` continua existindo para compatibilidade first-party/legada enquanto o rollout é concluído. O Android novo não deve usá-lo.
 
 ## OIDC
 
-Issuer produção:
+Issuer:
 
 ```text
 https://ouros-keycloak.discloud.app/realms/ouros
