@@ -133,7 +133,7 @@ Grupos principais:
 - Groq: keys e modelos fast/powerful;
 - NIM: key, modelos, base URL;
 - auth: issuer Keycloak, audience `ms-ai-server` e JWKS;
-- MCP: URL/resource e encaminhamento do JWT Keycloak autenticado ao Knowledge MCP;
+- MCP: URL/resource e Standard Token Exchange v2 para gerar um JWT delegado ao Knowledge MCP;
 - timeouts/temperatura.
 
 ## Identidade
@@ -144,16 +144,23 @@ Se `user_id` vier no payload/query por compatibilidade, ele só é aceito quando
 
 ### Interop com Knowledge MCP
 
-O AI Server mantém o access token validado em contexto por request e o encaminha ao Knowledge MCP no header Bearer.
+O AI Server mantém o access token validado em contexto por request, mas **não** o encaminha diretamente ao Knowledge MCP.
 
-O token precisa conter:
+Antes de abrir a conexão MCP, o backend autentica o client confidencial `ms-ai-server-mcp-exchange` no token endpoint do Keycloak e executa Standard Token Exchange v2. O token recebido do mobile precisa conter:
 
 ```text
 aud=ms-ai-server
-aud=ms-mcp-server-ouros-knowledge
+aud=ms-ai-server-mcp-exchange
 ```
 
-O Knowledge MCP valida o mesmo JWT por issuer/JWKS/audience e deriva a identidade de claims assinados. Não existe token estático paralelo no contrato atual.
+O token delegado resultante precisa conter:
+
+```text
+aud=ms-mcp-server-ouros-knowledge
+azp=ms-ai-server-mcp-exchange
+```
+
+O Knowledge MCP aceita apenas esse token delegado. Não existe fallback para encaminhar o JWT mobile diretamente.
 
 ## Observabilidade
 
