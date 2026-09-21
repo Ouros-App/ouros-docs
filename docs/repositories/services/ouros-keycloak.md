@@ -43,17 +43,22 @@ Resource servers devem validar assinatura, `iss`, `exp` e `aud`.
 
 Arquivos em `iac/resources/*.conf` são reconciliados no startup.
 
-Resources ativos observados:
+Resources relevantes ao caminho atual:
 
 ```text
+ouros-mobile
 keycloak-user-storage
 ms-auth-service-broker
 ms-auth-service-internal
 ms-spring-api
+ms-ai-server
+ms-ai-server-debug
+ms-mcp-server-ouros-knowledge
+ms-mcp-server-ouros-knowledge-codemode
 ms-telemetry-dashboard-service
 ```
 
-O `ms-auth-service-broker` recebe audience `ms-spring-api`, ligando o login first-party ao resource server de domínio.
+O `ouros-mobile` é public client com PKCE e recebe audiences para Spring, AI Server, Telemetry e para a delegação interna do Knowledge MCP. O `ms-auth-service-broker` permanece como compatibilidade legada.
 
 ### `microservice`
 
@@ -70,6 +75,10 @@ Public client com Authorization Code + PKCE S256, redirect URIs e web origins ex
 ### `service`
 
 Confidential client com service account e Client Credentials.
+
+### `password-grant`
+
+Exceção confidencial e explicitamente isolada para ferramentas internas. O caso atual é `ms-ai-server-debug`; não é contrato de mobile/web.
 
 ## Claims
 
@@ -118,7 +127,7 @@ A reconciliação é idempotente e deliberadamente não destrutiva: remover um `
 
 - mobile/web sem client secret;
 - service clients com secret gerado no Keycloak;
-- Direct Access Grants e Implicit Flow desativados nos perfis padrão;
+- Direct Access Grants desativados em mobile/web/resource servers; a exceção de debug é declarada e isolada;
 - PKCE S256 obrigatório para clientes públicos;
 - PostgreSQL do Keycloak fica em VLAN privada;
 - sessão administrativa do reconciliador fica em `/tmp`;
