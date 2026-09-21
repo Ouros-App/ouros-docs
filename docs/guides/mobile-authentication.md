@@ -25,9 +25,12 @@ O `ouros-mobile` recebe um único access token com as audiences:
 ms-spring-api
 ms-ai-server
 ms-telemetry-dashboard-service
+ms-mcp-server-ouros-knowledge
 ```
 
-O mesmo access token é enviado como Bearer às três APIs:
+As três primeiras são APIs chamadas diretamente pelo Android. A quarta é uma audience interna: o AI Server encaminha o mesmo JWT ao Knowledge MCP quando o Midas usa tools. O mobile não chama esse MCP diretamente e não precisa tratar essa audience de forma especial.
+
+O mesmo access token é enviado como Bearer às três APIs mobile-facing:
 
 ```http
 Authorization: Bearer <access_token>
@@ -259,7 +262,7 @@ Ele:
 3. permite senha + OTP no navegador;
 4. captura o callback local;
 5. troca o authorization code por access/refresh/id token;
-6. valida as três audiences;
+6. valida as três audiences mobile-facing e a audience interna do Knowledge MCP;
 7. usa o refresh token;
 8. valida o novo access token.
 
