@@ -26,11 +26,11 @@ Cheque:
 
 ### AI Server
 
-Cheque se o ambiente espera Bearer compartilhado ou JWT HS256 local. Não assuma JWKS Keycloak.
+Cheque issuer, audience e disponibilidade do JWKS do Keycloak.
 
 ### Telemetry / Knowledge MCP
 
-Cheque o token estático configurado. Esses serviços ainda não validam JWT Keycloak no contrato atual.
+Ambos validam JWT Keycloak. Confirme a audience específica de cada serviço. No Telemetry, um JWT válido sem role `admin` resulta em 403, não 401.
 
 ## 403
 
