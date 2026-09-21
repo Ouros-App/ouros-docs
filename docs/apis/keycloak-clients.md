@@ -33,7 +33,7 @@ ms-ai-server
 ms-telemetry-dashboard-service
 ```
 
-Essa lista é apenas a superfície mobile-facing. A configuração completa do client também inclui `ms-mcp-server-ouros-knowledge`, usada internamente quando o AI Server delega tools ao Knowledge MCP.
+Essa lista é apenas a superfície mobile-facing. A configuração completa do client também inclui `ms-ai-server-mcp-exchange`, que torna o JWT elegível para uma troca autenticada pelo backend. O token mobile não contém a audience do Knowledge MCP.
 
 O IaC também mantém os clients internos, resource servers e exceções de debug necessários para o ecossistema.
 
@@ -41,10 +41,10 @@ O IaC também mantém os clients internos, resource servers e exceções de debu
 
 | Client | Tipo | Audience(s) | Uso |
 | --- | --- | --- | --- |
-| `ouros-mobile` | mobile | `ms-spring-api`, `ms-ai-server`, `ms-telemetry-dashboard-service`, `ms-mcp-server-ouros-knowledge` | login Android + delegação Midas → MCP via Authorization Code + PKCE |
+| `ouros-mobile` | mobile | `ms-spring-api`, `ms-ai-server`, `ms-telemetry-dashboard-service`, `ms-ai-server-mcp-exchange` | login Android + elegibilidade para exchange backend-only |
 | `keycloak-user-storage` | service | `ms-auth-service-internal` | chama Auth interno |
 | `ms-auth-service-broker` | password-broker | conjunto first-party legado | broker de compatibilidade |
-| `ms-ai-server-debug` | password-grant | `ms-ai-server`, `ms-mcp-server-ouros-knowledge` | console de debug interno |
+| `ms-ai-server-debug` | password-grant | `ms-ai-server`, `ms-ai-server-mcp-exchange` | console de debug interno; MCP continua passando por exchange |
 | `ms-auth-service-internal` | microservice | `ms-auth-service-internal` | resource server do Auth interno |
 | `ms-spring-api` | microservice | `ms-spring-api` | resource server de domínio |
 | `ms-ai-server` | microservice | `ms-ai-server` | resource server do Midas |
@@ -76,7 +76,7 @@ Config atual:
 ```text
 CLIENT_TYPE=password-broker
 CLIENT_ID=ms-auth-service-broker
-AUDIENCES=ms-spring-api|ms-telemetry-dashboard-service|ms-ai-server|ms-mcp-server-ouros-knowledge|ms-mcp-server-ouros-knowledge-codemode
+AUDIENCES=ms-spring-api|ms-telemetry-dashboard-service|ms-ai-server|ms-ai-server-mcp-exchange|ms-mcp-server-ouros-knowledge-codemode
 ```
 
 Papel:
@@ -162,13 +162,24 @@ O Telemetry já valida JWT Keycloak por JWKS, issuer e audience. As rotas atuais
 
 ## Exemplos suportados pelo IaC
 
+### Token exchange AI → Knowledge MCP
+
+```bash
+CLIENT_TYPE=token-exchange
+CLIENT_ID=ms-ai-server-mcp-exchange
+AUDIENCE=ms-ai-server-mcp-exchange
+AUDIENCES=ms-mcp-server-ouros-knowledge
+```
+
+Esse client é **confidencial**, não possui login interativo e não fica no APK. O AI Server autentica no token endpoint com o client secret e executa Standard Token Exchange v2. O `subject_token` precisa conter `aud=ms-ai-server-mcp-exchange`; o token resultante contém `aud=ms-mcp-server-ouros-knowledge` e `azp=ms-ai-server-mcp-exchange`.
+
 ### Mobile de produção
 
 ```text
 CLIENT_TYPE=mobile
 CLIENT_ID=ouros-mobile
 REDIRECT_URIS=com.ourosapp.ourosandroidapp:/oauth2redirect|http://127.0.0.1:8765/callback
-AUDIENCES=ms-spring-api|ms-ai-server|ms-telemetry-dashboard-service|ms-mcp-server-ouros-knowledge
+AUDIENCES=ms-spring-api|ms-ai-server|ms-telemetry-dashboard-service|ms-ai-server-mcp-exchange
 ```
 
 Características:
@@ -178,7 +189,7 @@ Características:
 - Authorization Code;
 - PKCE S256 obrigatório;
 - Browser Flow com OTP por e-mail quando habilitado;
-- um access token para as três APIs mobile-facing e para a delegação interna AI Server → Knowledge MCP;
+- um access token para as três APIs mobile-facing e com audience do requester confidencial de token exchange;
 - redirect Android controlado pelo app;
 - redirect loopback exato reservado ao smoke test operacional.
 
@@ -319,7 +330,8 @@ O secret não pertence ao Git.
 `sync-clients.sh` usa duas passadas:
 
 1. cria `microservice` e seus audience scopes;
-2. reconcilia mobile/web/service/password-broker.
+2. cria scopes de requester para clients `token-exchange`;
+3. reconcilia mobile/web/service/token-exchange/password-broker.
 
 Motivo:
 
