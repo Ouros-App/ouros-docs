@@ -38,10 +38,12 @@ aud:
   - ms-spring-api
   - ms-ai-server
   - ms-telemetry-dashboard-service
-  - ms-mcp-server-ouros-knowledge
+  - ms-ai-server-mcp-exchange
 ```
 
-As três primeiras audiences correspondem às APIs chamadas diretamente pelo Android. A audience do Knowledge MCP permite que o AI Server delegue tools do Midas usando o mesmo JWT, sem um segundo login.
+As três primeiras audiences correspondem às APIs chamadas diretamente pelo Android. A quarta permite que o **client confidencial do AI Server** use o token como `subject_token` no Standard Token Exchange v2.
+
+O token mobile não possui `aud=ms-mcp-server-ouros-knowledge`. Para acessar tools, o AI Server troca o token por outro JWT com essa audience e `azp=ms-ai-server-mcp-exchange`.
 
 O refresh token conversa somente com o Keycloak.
 
