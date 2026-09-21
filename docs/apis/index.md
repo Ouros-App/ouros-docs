@@ -23,35 +23,53 @@ Esta seção é a referência de integração entre clientes e serviços. O obje
 !!! important "Spring já migrou para Keycloak"
     O `ms-spring-api` atual não possui mais endpoints de login local. Ele é um OAuth2 Resource Server e valida tokens Keycloak por JWKS, issuer e audience.
 
-## Fluxo principal de login + domínio
+## Fluxo Android
 
 ```mermaid
 sequenceDiagram
-    participant C as Cliente
-    participant A as ms-auth-service
+    participant U as Usuário
+    participant M as Android
     participant K as Keycloak
-    participant S as ms-spring-api
+    participant S as APIs
 
-    C->>A: POST /v1/auth/token
-    A->>K: password broker
-    K-->>A: access/refresh token (aud=ms-spring-api)
-    A-->>C: tokens Keycloak
-    C->>S: Authorization: Bearer <access_token>
-    S->>K: JWKS/cache local de chaves
-    S-->>C: recurso autorizado
+    M->>K: Authorization Code + PKCE S256
+    K->>U: Browser Flow (senha + OTP quando habilitado)
+    U->>K: autenticação
+    K-->>M: authorization code
+    M->>K: code + code_verifier
+    K-->>M: access + refresh + id token
+    M->>S: Authorization: Bearer <access_token>
 ```
 
-O client `ms-auth-service-broker` está configurado no IaC com `AUDIENCES="ms-spring-api"`, então o fluxo first-party já foi preparado para produzir token aceito pelo Spring.
+O client `ouros-mobile` é público, não possui client secret e recebe um access token multi-audience aceito por Spring, AI Server e Telemetry. A audience adicional do Knowledge MCP existe para a delegação interna feita pelo Midas.
+
+## Fluxo legado first-party
+
+```text
+cliente legado
+  → POST /v1/auth/token no ms-auth-service
+  → ms-auth-service-broker
+  → Keycloak
+  → JWT first-party
+```
+
+Esse broker permanece por compatibilidade durante o rollout. O APK novo não deve chamar `POST /v1/auth/token`.
 
 ## Qual interface usar?
 
-### Login de usuário
+### Login no Android
+
+Use o **Keycloak** diretamente via Browser Flow, Authorization Code + PKCE S256 com `client_id=ouros-mobile`.
+
+O app não envia senha ao token endpoint e não possui client secret. Veja [Autenticação no Android](../guides/mobile-authentication.md).
+
+### Login legado
 
 ```http
 POST /v1/auth/token
 ```
 
-Use o **Auth Service**. Ele aplica rate limit e devolve tokens emitidos pelo Keycloak.
+Use o **Auth Service** apenas para consumidores first-party ainda compatíveis com o broker legado.
 
 ### CRUD de fazenda, empresa, lotes, água, energia e perfis
 
