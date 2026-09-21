@@ -4,7 +4,7 @@ Referência do IaC atual em `ouros-keycloak/iac`.
 
 ## Tipos de client suportados
 
-O reconciliador reconhece cinco tipos:
+O reconciliador reconhece seis tipos:
 
 | Tipo | Uso | Característica |
 | --- | --- | --- |
@@ -13,36 +13,40 @@ O reconciliador reconhece cinco tipos:
 | `service` | machine-to-machine | confidential + service account |
 | `microservice` | resource server | audience/scope para API |
 | `password-broker` | bridge first-party do Auth Service | confidential + direct access grant controlado |
+| `password-grant` | ferramenta interna isolada | confidential + Direct Access Grant restrito |
 
 Implicit Flow fica desabilitado.
 
-## Resources realmente versionados hoje
+## Resources mobile e de identidade
 
-Em `iac/resources/`:
+O client mobile de produção é versionado em:
 
 ```text
-keycloak-user-storage.conf
-ms-auth-service-broker.conf
-ms-auth-service-internal.conf
-ms-spring-api.conf
-ms-telemetry-dashboard-service.conf
+iac/resources/ouros-mobile.conf
 ```
 
-Mobile/web aparecem como tipos suportados e exemplos, mas não como resource files ativos no snapshot atual.
+Ele referencia audiences já gerenciadas pelos resource servers:
 
-Isso evita confundir:
+```text
+ms-spring-api
+ms-ai-server
+ms-telemetry-dashboard-service
+```
 
-> “o IaC sabe criar” com “o client já existe em produção”.
+O IaC também mantém os clients internos, resource servers e exceções de debug necessários para o ecossistema.
 
 ## Matriz atual
 
 | Client | Tipo | Audience(s) | Uso |
 | --- | --- | --- | --- |
+| `ouros-mobile` | mobile | `ms-spring-api`, `ms-ai-server`, `ms-telemetry-dashboard-service` | login Android via Authorization Code + PKCE |
 | `keycloak-user-storage` | service | `ms-auth-service-internal` | chama Auth interno |
-| `ms-auth-service-broker` | password-broker | `ms-spring-api` | login first-party e token para Spring |
+| `ms-auth-service-broker` | password-broker | conjunto first-party legado | broker de compatibilidade |
+| `ms-ai-server-debug` | password-grant | `ms-ai-server`, `ms-mcp-server-ouros-knowledge` | console de debug interno |
 | `ms-auth-service-internal` | microservice | `ms-auth-service-internal` | resource server do Auth interno |
 | `ms-spring-api` | microservice | `ms-spring-api` | resource server de domínio |
-| `ms-telemetry-dashboard-service` | microservice | `ms-telemetry-dashboard-service` | resource preparado para Telemetry |
+| `ms-ai-server` | microservice | `ms-ai-server` | resource server do Midas |
+| `ms-telemetry-dashboard-service` | microservice | `ms-telemetry-dashboard-service` | resource server de dashboards |
 
 ## `keycloak-user-storage`
 
@@ -70,7 +74,7 @@ Config atual:
 ```text
 CLIENT_TYPE=password-broker
 CLIENT_ID=ms-auth-service-broker
-AUDIENCES=ms-spring-api
+AUDIENCES=ms-spring-api|ms-telemetry-dashboard-service|ms-ai-server|ms-mcp-server-ouros-knowledge|ms-mcp-server-ouros-knowledge-codemode
 ```
 
 Papel:
@@ -152,20 +156,17 @@ SCOPE_NAME=ms-telemetry-dashboard-audience
 MAPPER_NAME=ms-telemetry-dashboard-audience
 ```
 
-Isso prepara o Keycloak para emitir tokens destinados ao Telemetry.
-
-!!! note "Migração da aplicação ainda incompleta"
-    O Telemetry atual autentica rotas de negócio por `API_BEARER_TOKEN` estático. Ter o resource server no IaC não significa que o código já valide JWT Keycloak.
+O Telemetry já valida JWT Keycloak por JWKS, issuer e audience. As rotas atuais de dashboard também exigem a realm role `admin`, portanto audience válida não substitui autorização de negócio.
 
 ## Exemplos suportados pelo IaC
 
-### Mobile
+### Mobile de produção
 
 ```text
 CLIENT_TYPE=mobile
 CLIENT_ID=ouros-mobile
-REDIRECT_URIS=com.ouros.app:/oauth2redirect
-AUDIENCES=ms-example-api
+REDIRECT_URIS=com.ourosapp.ourosandroidapp:/oauth2redirect|http://127.0.0.1:8765/callback
+AUDIENCES=ms-spring-api|ms-ai-server|ms-telemetry-dashboard-service
 ```
 
 Características:
@@ -173,8 +174,11 @@ Características:
 - public client;
 - sem client secret;
 - Authorization Code;
-- PKCE S256;
-- redirect URI controlado pelo app.
+- PKCE S256 obrigatório;
+- Browser Flow com OTP por e-mail quando habilitado;
+- um access token para as três APIs;
+- redirect Android controlado pelo app;
+- redirect loopback exato reservado ao smoke test operacional.
 
 ### Web
 
@@ -342,26 +346,13 @@ Depois:
 
 Veja [Guia: nova API com Keycloak](../guides/new-keycloak-api.md).
 
-## Adicionar mobile/web real
+## Contrato mobile real
 
-Não copie exemplo sem trocar:
+O client `ouros-mobile` já é parte da configuração gerenciada. Alterações de redirect URI ou audiences devem passar por PR no `ouros-keycloak`; não devem ser feitas manualmente pelo desenvolvedor Android.
 
-- client ID;
-- redirect URI;
-- web origin;
-- audiences.
+Para implementação do app, use [Autenticação no Android](../guides/mobile-authentication.md).
 
-Web:
-
-- HTTPS em produção;
-- origins exatas;
-- sem client secret no browser.
-
-Mobile:
-
-- PKCE S256;
-- redirect URI controlado pelo app;
-- armazenamento seguro de tokens.
+Web continua seguindo o mesmo princípio de public client + PKCE, mas possui configuração própria quando for ativado.
 
 ## Falhas comuns
 
