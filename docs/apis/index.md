@@ -41,7 +41,7 @@ sequenceDiagram
     M->>S: Authorization: Bearer <access_token>
 ```
 
-O client `ouros-mobile` é público, não possui client secret e recebe um access token multi-audience aceito por Spring, AI Server e Telemetry. A audience adicional do Knowledge MCP existe para a delegação interna feita pelo Midas.
+O client `ouros-mobile` é público, não possui client secret e recebe um access token multi-audience aceito por Spring, AI Server e Telemetry. Ele também inclui `aud=ms-ai-server-mcp-exchange`, necessária para o AI Server realizar Standard Token Exchange v2. O JWT do Android não é aceito diretamente pelo Knowledge MCP.
 
 ## Fluxo legado first-party
 
