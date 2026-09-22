@@ -15,7 +15,7 @@ Hoje o caminho mobile está convergido em Keycloak:
 Implicação:
 
 - o Android pode autenticar uma vez e reutilizar o access token nos três serviços mobile-facing;
-- o token inclui uma audience interna adicional para delegação AI Server → Knowledge MCP;
+- o token inclui `ms-ai-server-mcp-exchange`, que o torna elegível para uma troca backend-only; a audience do Knowledge MCP não vai para o Android;
 - refresh token continua exclusivo do Keycloak.
 
 ## Telemetry ainda não é user-scoped para mobile
