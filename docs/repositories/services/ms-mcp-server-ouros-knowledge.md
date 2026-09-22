@@ -75,10 +75,10 @@ Separação de credenciais:
 - `MIDAS_DATABASE_URL`: leitura;
 - `MIDAS_IMPORT_DATABASE_URL`: role de importação com `EXECUTE` controlado.
 
-O transporte MCP usa Bearer configurado em `MCP_AUTH_TOKEN`. O verifier atual é estático: ele exige token com pelo menos 32 caracteres e faz comparação exata.
+O transporte MCP usa JWT RS256 do Keycloak. O verifier resolve JWKS e valida issuer, expiração, `aud=ms-mcp-server-ouros-knowledge` e `azp=ms-ai-server-mcp-exchange`.
 
-!!! warning "JWT do AI Server ainda não é aceito"
-    O AI Server possui um caminho opcional que gera JWT HS256 por usuário, mas o Knowledge MCP atual não valida JWT. Para interoperar hoje, configure `MCP_ACCESS_TOKEN` no AI Server com o mesmo valor de `MCP_AUTH_TOKEN` neste serviço.
+!!! note "Delegação pelo AI Server"
+    O AI Server não encaminha o JWT bruto do usuário. Ele executa Standard Token Exchange v2 usando o client confidencial `ms-ai-server-mcp-exchange`. O token do `ouros-mobile` não contém a audience do MCP e não é aceito diretamente.
 
 ## Qdrant
 
@@ -119,8 +119,11 @@ flowchart LR
 - NVIDIA embeddings/NIM;
 - `MIDAS_DATABASE_URL`;
 - `MIDAS_IMPORT_DATABASE_URL`;
-- `MCP_AUTH_TOKEN`;
-- `MCP_RESOURCE_URL`.
+- `MCP_RESOURCE_URL`;
+- `MCP_JWT_ISSUER`;
+- `MCP_JWT_AUDIENCE=ms-mcp-server-ouros-knowledge`;
+- `MCP_JWT_AUTHORIZED_PARTY=ms-ai-server-mcp-exchange`;
+- `MCP_JWKS_URL` opcional.
 
 ## Testes
 

@@ -12,11 +12,11 @@ Backend do Midas. Recebe uma mensagem, autentica o usuário, roteia intenções 
 
 | Método | Rota | Autenticação |
 | --- | --- | --- |
-| GET | `/` | Bearer |
-| GET | `/health` | Bearer |
-| GET | `/metrics` | Bearer |
-| POST | `/v1/chat` | Bearer/JWT conforme configuração |
-| GET | `/v1/chat/{thread_id}/history` | Bearer/JWT conforme configuração |
+| GET | `/` | JWT Keycloak |
+| GET | `/health` | JWT Keycloak |
+| GET | `/metrics` | JWT Keycloak |
+| POST | `/v1/chat` | JWT Keycloak |
+| GET | `/v1/chat/{thread_id}/history` | JWT Keycloak |
 
 Swagger/ReDoc/OpenAPI permanecem públicos.
 
@@ -26,15 +26,16 @@ Payload:
 
 ```json
 {
-  "user_id": "6",
   "message": "Como está meu consumo de energia?",
   "thread_id": "opcional"
 }
 ```
 
+`user_id` ainda pode ser enviado por compatibilidade, mas deve coincidir com o `database_id` assinado no JWT. O backend deriva a identidade do token.
+
 Limites do schema:
 
-- `user_id`: 1..128 chars;
+- `user_id`: opcional, 1..128 chars e precisa coincidir com o JWT;
 - `message`: 1..8000;
 - `thread_id`: 1..128; UUID automático quando omitido.
 
@@ -131,27 +132,35 @@ Grupos principais:
 - MongoDB: `MONGODB_URI`, `MONGODB_DATABASE`;
 - Groq: keys e modelos fast/powerful;
 - NIM: key, modelos, base URL;
-- auth: Bearer/JWT/issuer/audience;
-- MCP: URL, token estático ou caminho JWT experimental, issuer/resource e TTL;
+- auth: issuer Keycloak, audience `ms-ai-server` e JWKS;
+- MCP: URL/resource e Standard Token Exchange v2 para gerar um JWT delegado ao Knowledge MCP;
 - timeouts/temperatura.
 
 ## Identidade
 
-Quando `AUTH_REQUIRE_USER_JWT=true`, o `sub`/user ID autenticado precisa coincidir com `user_id`. Threads também possuem owner persistido e não podem trocar de usuário posteriormente.
+O único credential de usuário aceito é um access token Keycloak RS256. O AI Server valida issuer, JWKS, audience `ms-ai-server`, `sub`, `database_id`, `account_type` e a realm role correspondente.
+
+Se `user_id` vier no payload/query por compatibilidade, ele só é aceito quando coincide com o `database_id` assinado. Threads também possuem owner persistido e não podem trocar de usuário posteriormente.
 
 ### Interop com Knowledge MCP
 
-O provider pode gerar JWT HS256 por usuário via `MCP_JWT_SECRET`, mas o Knowledge MCP atual só aceita token estático por igualdade exata.
+O AI Server mantém o access token validado em contexto por request, mas **não** o encaminha diretamente ao Knowledge MCP.
 
-No estado atual, use:
+Antes de abrir a conexão MCP, o backend autentica o client confidencial `ms-ai-server-mcp-exchange` no token endpoint do Keycloak e executa Standard Token Exchange v2. O token recebido do mobile precisa conter:
 
 ```text
-MCP_ACCESS_TOKEN (AI Server)
-=
-MCP_AUTH_TOKEN (Knowledge MCP)
+aud=ms-ai-server
+aud=ms-ai-server-mcp-exchange
 ```
 
-até existir um verifier JWT compatível no MCP.
+O token delegado resultante precisa conter:
+
+```text
+aud=ms-mcp-server-ouros-knowledge
+azp=ms-ai-server-mcp-exchange
+```
+
+O Knowledge MCP aceita apenas esse token delegado. Não existe fallback para encaminhar o JWT mobile diretamente.
 
 ## Observabilidade
 

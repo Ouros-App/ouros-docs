@@ -4,15 +4,24 @@ Contrato atual do `ms-telemetry-dashboard-service`.
 
 ## Auth
 
-Rotas de negócio usam token estático:
+Rotas de negócio validam JWT RS256 emitido pelo Keycloak:
 
 ```http
-Authorization: Bearer <API_BEARER_TOKEN>
+Authorization: Bearer <access_token>
 ```
 
-Não há validação de JWT Keycloak no código atual.
+Configuração esperada:
 
-O IaC já possui resource server `ms-telemetry-dashboard-service`, então a infraestrutura para migração existe, mas a aplicação ainda usa `compare_digest` contra o token configurado.
+```text
+issuer   = https://ouros-keycloak.discloud.app/realms/ouros
+audience = ms-telemetry-dashboard-service
+role     = admin
+```
+
+O serviço resolve a chave pelo JWKS, valida issuer/audience/timestamps e exige a realm role `admin`.
+
+!!! note "Mobile"
+    O token do `ouros-mobile` contém a audience do Telemetry, mas um `farm_owner` ou `company_employee` ainda recebe `403` enquanto as rotas atuais permanecerem admin-only. Não faça novo login para corrigir 403.
 
 ## Rotas
 
@@ -22,23 +31,23 @@ O IaC já possui resource server `ms-telemetry-dashboard-service`, então a infr
 | GET | `/health` | pública | liveness |
 | GET | `/ready` | pública | readiness |
 | GET | `/metrics` | pública | Prometheus |
-| GET | `/v1/dashboards` | Bearer estático | JSON |
-| GET | `/v1/dashboards/{id}` | Bearer estático | JSON |
-| GET | `/v1/dashboards/{id}/charts` | Bearer estático | JSON |
-| GET | `/v1/dashboards/{id}/charts/{chart_id}/png` | Bearer estático | image/png |
-| GET | `/v1/dashboards/{id}/charts/{chart_id}/chartjs` | Bearer estático | text/html |
-
-!!! warning "Metrics público"
-    `/metrics` não exige Bearer na versão atual.
+| GET | `/v1/dashboards` | JWT Keycloak + `admin` | JSON |
+| GET | `/v1/dashboards/{id}` | JWT Keycloak + `admin` | JSON |
+| GET | `/v1/dashboards/{id}/charts` | JWT Keycloak + `admin` | JSON |
+| GET | `/v1/dashboards/{id}/charts/{chart_id}/png` | JWT Keycloak + `admin` | image/png |
+| GET | `/v1/dashboards/{id}/charts/{chart_id}/chartjs` | JWT Keycloak + `admin` | text/html |
 
 ## Readiness
 
-`/ready` valida configuração obrigatória, incluindo:
+`/ready` verifica:
 
-- `API_BEARER_TOKEN`;
 - `DATABRICKS_HOST`;
 - `DATABRICKS_CLIENT_ID`;
-- `DATABRICKS_CLIENT_SECRET`.
+- `DATABRICKS_CLIENT_SECRET`;
+- configuração completa de issuer/audience Keycloak;
+- URLs HTTPS válidas;
+- role exigida não vazia;
+- limites de timeout/cache.
 
 Pronto:
 
@@ -46,7 +55,7 @@ Pronto:
 {"status":"ok","errors":[]}
 ```
 
-Não pronto: 503 com lista sanitizada em `errors`.
+Configuração incompleta retorna 503 com lista sanitizada em `errors`.
 
 ## Dashboards
 
@@ -54,19 +63,7 @@ Não pronto: 503 com lista sanitizada em `errors`.
 
 ```http
 GET /v1/dashboards
-```
-
-```json
-{
-  "items": [
-    {
-      "id": "operacao",
-      "title": "Operação",
-      "description": "Indicadores",
-      "provider": "databricks"
-    }
-  ]
-}
+Authorization: Bearer <jwt>
 ```
 
 ### Dashboard individual
@@ -74,8 +71,6 @@ GET /v1/dashboards
 ```http
 GET /v1/dashboards/{dashboard_id}
 ```
-
-404 quando não existe/visível.
 
 ### Charts
 
@@ -98,12 +93,7 @@ pie
 GET /v1/dashboards/{dashboard_id}/charts/{chart_id}/png
 ```
 
-Header:
-
-```http
-Cache-Control: private, max-age=30
-Content-Type: image/png
-```
+Resposta usa `Cache-Control: private, max-age=30`.
 
 ### Chart.js
 
@@ -111,77 +101,21 @@ Content-Type: image/png
 GET /v1/dashboards/{dashboard_id}/charts/{chart_id}/chartjs
 ```
 
-Retorna HTML self-contained/iframe-friendly.
-
-Header:
-
-```http
-Cache-Control: no-store
-```
-
-O JSON embutido é escapado para `<`, `>` e `&`, e o título passa por escape HTML.
+Retorna HTML self-contained e usa `Cache-Control: no-store`.
 
 ## Erros
 
 | Status | Causa |
 | ---: | --- |
-| 401 | Bearer ausente/incorreto |
+| 401 | JWT ausente, inválido, expirado, issuer/audience incorreto |
+| 403 | JWT válido, mas role `admin` ausente |
 | 404 | dashboard/chart não encontrado |
 | 502 | integração Databricks falhou |
-| 503 | auth/config não configurada ou readiness falhou |
+| 503 | autenticação/config/JWKS indisponível |
 | 504 | request Databricks excedeu timeout |
 
-Se `API_BEARER_TOKEN` não estiver configurado, uma rota protegida retorna **503**, não 401.
+## Segurança de dados
 
-## Contrato de dashboard/chart
+A autenticação JWT não transforma dashboards globais em dashboards user-scoped. Enquanto o provider usa credenciais Databricks compartilhadas e a autorização permanece `admin`, não remova a role obrigatória apenas para permitir acesso mobile.
 
-Tipos públicos de chart:
-
-```text
-counter
-bar
-line
-pie
-```
-
-Definições internas vindas do provider carregam conceitos como:
-
-```text
-id
-title
-type
-warehouse_id
-dataset_query
-fields[]
-encodings{}
-```
-
-Cada field possui nome e expressão. O provider converte metadata/serialized dashboard do Databricks para esse contrato antes do rendering.
-
-O catálogo local de dashboards pode coexistir com descoberta do provider; não assuma que a lista versionada local é a única fonte de dashboards visíveis.
-
-## Request ID
-
-O serviço suporta `X-Request-ID` para correlação.
-
-```bash
-curl -i "$TELEMETRY_URL/health" \
-  -H 'X-Request-ID: debug-telemetry-001'
-```
-
-## Retry/cache
-
-O cliente Databricks já aplica timeout/retry configurado. Evite empilhar retries agressivos no consumidor.
-
-Cache de charts: default 30 s.
-
-## Migração futura para Keycloak
-
-Resource server já versionado:
-
-```text
-CLIENT_ID=ms-telemetry-dashboard-service
-AUDIENCE=ms-telemetry-dashboard-service
-```
-
-Uma migração segura deve aceitar JWT Keycloak em paralelo, migrar consumidores e só depois remover o token estático.
+A abertura para produtores/funcionários exige desenho separado de escopo/ownership de dashboard.

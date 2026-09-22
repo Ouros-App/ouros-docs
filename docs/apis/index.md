@@ -14,44 +14,62 @@ Esta seção é a referência de integração entre clientes e serviços. O obje
 | `ms-spring-api` | REST/OpenAPI | domínio transacional | **JWT Keycloak** com issuer + JWKS + audience `ms-spring-api` |
 | `ms-auth-service` | REST | login, credenciais e bridge de identidade | rotas públicas + JWT de serviço nas rotas internas |
 | `ouros-keycloak` | OIDC/OAuth2 | tokens, roles, audiences e federação | protocolos Keycloak |
-| `ms-ai-server` | REST | chat Midas e histórico | Bearer compartilhado **ou** JWT HS256 configurável |
-| Knowledge MCP | MCP Streamable HTTP | conhecimento, contexto e importação | Bearer estático compartilhado |
-| Telemetry | REST | dashboards Databricks e renderização | Bearer estático em rotas de negócio |
+| `ms-ai-server` | REST | chat Midas e histórico | JWT Keycloak, audience `ms-ai-server` |
+| Knowledge MCP | MCP Streamable HTTP | conhecimento, contexto e importação | JWT Keycloak, audience `ms-mcp-server-ouros-knowledge` |
+| Telemetry | REST | dashboards Databricks e renderização | JWT Keycloak, audience própria + role `admin` |
 | GitHub Manager | REST + UI | criação/padronização de repos | cookie de sessão assinado |
 | Auto Review | webhook HTTP | revisão automática de PRs | assinatura HMAC do GitHub |
 
 !!! important "Spring já migrou para Keycloak"
     O `ms-spring-api` atual não possui mais endpoints de login local. Ele é um OAuth2 Resource Server e valida tokens Keycloak por JWKS, issuer e audience.
 
-## Fluxo principal de login + domínio
+## Fluxo Android
 
 ```mermaid
 sequenceDiagram
-    participant C as Cliente
-    participant A as ms-auth-service
+    participant U as Usuário
+    participant M as Android
     participant K as Keycloak
-    participant S as ms-spring-api
+    participant S as APIs
 
-    C->>A: POST /v1/auth/token
-    A->>K: password broker
-    K-->>A: access/refresh token (aud=ms-spring-api)
-    A-->>C: tokens Keycloak
-    C->>S: Authorization: Bearer <access_token>
-    S->>K: JWKS/cache local de chaves
-    S-->>C: recurso autorizado
+    M->>K: Authorization Code + PKCE S256
+    K->>U: Browser Flow (senha + OTP quando habilitado)
+    U->>K: autenticação
+    K-->>M: authorization code
+    M->>K: code + code_verifier
+    K-->>M: access + refresh + id token
+    M->>S: Authorization: Bearer <access_token>
 ```
 
-O client `ms-auth-service-broker` está configurado no IaC com `AUDIENCES="ms-spring-api"`, então o fluxo first-party já foi preparado para produzir token aceito pelo Spring.
+O client `ouros-mobile` é público, não possui client secret e recebe um access token multi-audience aceito por Spring, AI Server e Telemetry. Ele também inclui `aud=ms-ai-server-mcp-exchange`, necessária para o AI Server realizar Standard Token Exchange v2. O JWT do Android não é aceito diretamente pelo Knowledge MCP.
+
+## Fluxo legado first-party
+
+```text
+cliente legado
+  → POST /v1/auth/token no ms-auth-service
+  → ms-auth-service-broker
+  → Keycloak
+  → JWT first-party
+```
+
+Esse broker permanece por compatibilidade durante o rollout. O APK novo não deve chamar `POST /v1/auth/token`.
 
 ## Qual interface usar?
 
-### Login de usuário
+### Login no Android
+
+Use o **Keycloak** diretamente via Browser Flow, Authorization Code + PKCE S256 com `client_id=ouros-mobile`.
+
+O app não envia senha ao token endpoint e não possui client secret. Veja [Autenticação no Android](../guides/mobile-authentication.md).
+
+### Login legado
 
 ```http
 POST /v1/auth/token
 ```
 
-Use o **Auth Service**. Ele aplica rate limit e devolve tokens emitidos pelo Keycloak.
+Use o **Auth Service** apenas para consumidores first-party ainda compatíveis com o broker legado.
 
 ### CRUD de fazenda, empresa, lotes, água, energia e perfis
 

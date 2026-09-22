@@ -20,33 +20,23 @@ Esta página separa duas interfaces diferentes:
 !!! note
     O router aplica `get_current_principal` globalmente. Até `/health` exige Bearer no código atual.
 
-### Modos de autenticação
+### Autenticação
 
-O AI Server aceita:
+O deployment atual aceita somente access token RS256 emitido pelo Keycloak.
 
-1. **Bearer compartilhado** via `AUTH_BEARER_TOKEN`;
-2. **JWT HS256** via `AUTH_JWT_SECRET`.
+```text
+issuer   = https://ouros-keycloak.discloud.app/realms/ouros
+audience = ms-ai-server
+JWKS     = <issuer>/protocol/openid-connect/certs
+```
 
-Se JWT estiver configurado, ele pode validar:
+O AI Server valida assinatura, issuer, audience, timestamps e identidade de negócio. O principal exige `sub`, `database_id`, `account_type` e a realm role correspondente.
 
-- issuer;
-- audience;
-- `sub`/`user_id`;
-- `user_type`.
-
-Isso **não é** o mesmo modelo JWKS/RS256 usado pelo Spring com Keycloak.
-
-### `AUTH_REQUIRE_USER_JWT`
-
-Quando `true`, chat/histórico personalizado exigem um token que carregue identidade do usuário.
-
-Se um Bearer compartilhado tentar acessar dados personalizados:
+Se o payload/query enviar `user_id` por compatibilidade e ele não coincidir com o `database_id` assinado:
 
 - 403.
 
-Se o payload enviar `user_id` diferente do token:
-
-- 403.
+`AUTH_BEARER_TOKEN`, JWT HS256 local e `AUTH_REQUIRE_USER_JWT` pertencem a versões antigas do contrato e não são modos aceitos pelo deployment atual.
 
 ### POST `/v1/chat`
 
@@ -54,7 +44,6 @@ Request:
 
 ```json
 {
-  "user_id": "42",
   "message": "Como está meu consumo de energia?",
   "thread_id": "opcional"
 }
@@ -64,7 +53,7 @@ Regras:
 
 | Campo | Regra |
 | --- | --- |
-| user_id | 1..128 |
+| user_id | opcional, 1..128; se enviado, precisa coincidir com o JWT |
 | message | 1..8000 |
 | thread_id | 1..128; UUID gerado quando omitido |
 
@@ -82,7 +71,7 @@ Response:
 ### Histórico
 
 ```http
-GET /v1/chat/{thread_id}/history?user_id=42&limit=20&before=<cursor>
+GET /v1/chat/{thread_id}/history?limit=20&before=<cursor>
 ```
 
 - `limit`: 1..100;
@@ -107,8 +96,8 @@ Response:
 | Status | Situação típica |
 | ---: | --- |
 | 200 | chat concluído **ou** input bloqueado pelo guardrail com resposta segura |
-| 401 | Bearer/JWT ausente ou inválido |
-| 403 | user_id não coincide com identidade; shared bearer proibido em modo user-JWT; thread pertence a outro usuário |
+| 401 | JWT Keycloak ausente, inválido, expirado ou com issuer/audience incorreto |
+| 403 | user_id de compatibilidade não coincide com o JWT; thread pertence a outro usuário |
 | 404 | histórico solicitado para thread inexistente |
 | 422 | schema inválido ou cursor `before` inválido |
 | 503 | budget total do provider/LLM excedeu timeout |
@@ -148,15 +137,19 @@ Streamable HTTP, stateless.
 
 ### Auth real
 
-O verifier atual é `StaticTokenVerifier`.
+O Knowledge MCP usa `KeycloakTokenVerifier`, mas não aceita o access token bruto do usuário. O AI Server primeiro executa Standard Token Exchange v2 e envia o JWT delegado resultante.
 
-Ele aceita **somente** um token exatamente igual a `MCP_AUTH_TOKEN` e exige pelo menos 32 caracteres.
-
-```http
-Authorization: Bearer <MCP_AUTH_TOKEN>
+```text
+issuer   = https://ouros-keycloak.discloud.app/realms/ouros
+audience = ms-mcp-server-ouros-knowledge
+JWKS     = <issuer>/protocol/openid-connect/certs
 ```
 
-`GET /` e `GET /health` da aplicação FastAPI são públicos; as chamadas MCP são autenticadas.
+```http
+Authorization: Bearer <keycloak_access_token>
+```
+
+O verifier exige JWT válido, `aud=ms-mcp-server-ouros-knowledge`, `azp=ms-ai-server-mcp-exchange` e identidade de negócio assinada: `database_id`, `account_type` e a realm role correspondente. Um JWT do `ouros-mobile` é rejeitado diretamente.
 
 ### Tools
 
@@ -194,31 +187,31 @@ Allowlist atual:
 
 Para tools user-scoped, o AI Server vincula o `user_id` no backend e não o entrega livre ao modelo.
 
-## Incompatibilidade atual: JWT do AI → MCP
+## Delegação AI Server → MCP
 
-O AI Server contém suporte para gerar JWT HS256 curto por usuário quando `MCP_JWT_SECRET` está configurado.
+O AI Server mantém o JWT do usuário apenas como `subject_token` da troca. Para abrir a conexão MCP ele autentica o client confidencial `ms-ai-server-mcp-exchange` no token endpoint do Keycloak e solicita:
 
-Porém, o Knowledge MCP atual **não valida JWT**: `StaticTokenVerifier` só faz comparação exata com `MCP_AUTH_TOKEN`.
+```text
+grant_type = urn:ietf:params:oauth:grant-type:token-exchange
+audience   = ms-mcp-server-ouros-knowledge
+```
 
-Consequência:
+O JWT mobile possui `aud=ms-ai-server-mcp-exchange` para ser elegível à troca, mas **não** possui a audience do MCP. O token delegado contém `aud=ms-mcp-server-ouros-knowledge` e `azp=ms-ai-server-mcp-exchange`.
 
-- modo compatível hoje: configurar `MCP_ACCESS_TOKEN` no AI Server com o mesmo valor de `MCP_AUTH_TOKEN` no MCP;
-- o caminho de JWT per-user só funcionará quando o MCP ganhar verifier compatível.
-
-!!! warning
-    Não configure somente `MCP_JWT_SECRET` esperando que o Knowledge MCP atual aceite esses tokens.
+Não existe fallback para encaminhar o token mobile diretamente ao MCP.
 
 ## Segurança do escopo
 
-Mesmo com token MCP compartilhado:
+Mesmo com autenticação centralizada:
 
 - identidade precisa ter tipo válido;
-- user ID precisa ser inteiro positivo;
+- `database_id` precisa ser inteiro positivo;
 - o AI Server faz binding de identidade;
-- farm IDs explícitos passam por filtros/allowlist;
+- tools user-scoped não recebem user ID livre do modelo;
+- farm IDs passam por filtros/allowlist;
 - write usa função PostgreSQL controlada.
 
-O token compartilhado autentica o **cliente MCP**; ownership de usuário continua sendo responsabilidade da camada de tools/aplicação.
+O JWT autentica a identidade, mas ownership e autorização de dados continuam sendo aplicados pela camada de tools/aplicação.
 
 ## Importação
 

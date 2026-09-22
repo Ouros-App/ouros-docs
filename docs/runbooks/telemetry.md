@@ -22,7 +22,10 @@ GET /ready
 
 Revise:
 
-- `API_BEARER_TOKEN`;
+- `KEYCLOAK_ISSUER_URL`;
+- `KEYCLOAK_AUDIENCE=ms-telemetry-dashboard-service`;
+- `KEYCLOAK_JWKS_URL` quando sobrescrito;
+- `KEYCLOAK_REQUIRED_ROLE=admin`;
 - `DATABRICKS_HOST`;
 - `DATABRICKS_CLIENT_ID`;
 - `DATABRICKS_CLIENT_SECRET`.

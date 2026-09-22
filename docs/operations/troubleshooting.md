@@ -26,11 +26,11 @@ Cheque:
 
 ### AI Server
 
-Cheque se o ambiente espera Bearer compartilhado ou JWT HS256 local. Não assuma JWKS Keycloak.
+Cheque issuer, audience e disponibilidade do JWKS do Keycloak.
 
 ### Telemetry / Knowledge MCP
 
-Cheque o token estático configurado. Esses serviços ainda não validam JWT Keycloak no contrato atual.
+Ambos validam JWT Keycloak. Confirme a audience específica de cada serviço. No Telemetry, um JWT válido sem role `admin` resulta em 403, não 401.
 
 ## 403
 
@@ -55,19 +55,24 @@ Cheque OAuth, permissões do service principal, workspace e SQL Warehouse.
 
 ## Midas não usa dados pessoais
 
+O AI Server usa o JWT validado como `subject_token`, executa Standard Token Exchange v2 no Keycloak e encaminha ao Knowledge MCP apenas o token delegado.
+
 Cheque:
 
-- `MCP_URL`;
-- `MCP_ACCESS_TOKEN` no AI Server;
-- `MCP_AUTH_TOKEN` no Knowledge MCP;
-- os dois tokens precisam ser exatamente iguais no contrato atual;
-- identidade numérica;
+- `MCP_URL` e `MCP_RESOURCE_URL` no AI Server;
+- o JWT recebido do mobile contém `aud=ms-ai-server` e `aud=ms-ai-server-mcp-exchange`, mas **não** `aud=ms-mcp-server-ouros-knowledge`;
+- no AI Server, o client de exchange configurado é `ms-ai-server-mcp-exchange`;
+- a troca retorna um JWT com `aud=ms-mcp-server-ouros-knowledge` e `azp=ms-ai-server-mcp-exchange`;
+- no MCP, `MCP_JWT_ISSUER` aponta para o realm correto;
+- `MCP_JWT_AUDIENCE=ms-mcp-server-ouros-knowledge`;
+- `MCP_JWT_AUTHORIZED_PARTY=ms-ai-server-mcp-exchange`;
+- `MCP_JWKS_URL`, quando sobrescrito, aponta para o JWKS do mesmo issuer;
+- claims `database_id`, `account_type` e realm role coerente;
 - allowlist do agente;
 - `MIDAS_DATABASE_URL`;
-- ownership da farm.
+- ownership/escopo da farm.
 
-!!! warning
-    O Knowledge MCP atual não aceita JWT MCP. O caminho `MCP_JWT_SECRET` do AI Server só deve ser usado quando o MCP ganhar verifier JWT compatível.
+Se o AI Server aceita o token mas as tools falham, diferencie falha de **exchange** de 401 no MCP. Não reintroduza fallback que encaminhe o JWT mobile diretamente nem token estático paralelo.
 
 ## Midas responde sem IA
 

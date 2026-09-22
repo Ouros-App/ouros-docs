@@ -141,11 +141,13 @@ nav:
       - Secrets: operations/secrets.md
       - Troubleshooting: operations/troubleshooting.md
   - Guias:
+      - Autenticação no Android: guides/mobile-authentication.md
       - Novo endpoint Spring: guides/new-spring-endpoint.md
       - Nova tool Midas: guides/new-mcp-tool.md
       - Nova API com Keycloak: guides/new-keycloak-api.md
       - Mudança segura de banco: guides/safe-database-change.md
   - Runbooks:
+      - Rollout da autenticação mobile: runbooks/mobile-auth-rollout.md
       - Autenticação: runbooks/authentication.md
       - Banco e migrations: runbooks/database-migrations.md
       - Midas e MCP: runbooks/ai-mcp.md

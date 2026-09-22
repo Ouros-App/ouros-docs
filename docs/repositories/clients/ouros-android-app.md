@@ -82,14 +82,18 @@ A CI do repo deve ser tratada separadamente do template, pois o README copiado n
 
 ## Relação com autenticação
 
-Quando implementado, o app precisa usar um fluxo compatível com a arquitetura de identidade atual.
+O contrato mobile já está definido do lado de infraestrutura:
 
-Opções arquiteturais existentes no ecossistema:
+- client `ouros-mobile`;
+- Authorization Code + PKCE S256;
+- Browser Flow do Keycloak com OTP por e-mail quando habilitado;
+- nenhum client secret no APK;
+- um único access token com audiences para Spring API, AI Server e Telemetry Dashboard;
+- refresh silencioso diretamente no Keycloak.
 
-- Authorization Code + PKCE com client mobile do Keycloak;
-- contrato `POST /v1/auth/token` do `ms-auth-service` para clientes first-party quando essa decisão for mantida.
+O Android não deve usar `POST /v1/auth/token` do Auth Service nem Direct Access Grant.
 
-Tokens devem ficar em armazenamento seguro da plataforma, não em preferences comuns ou logs.
+A implementação passo a passo está em [Integração de autenticação no Android](../../guides/mobile-authentication.md).
 
 ## Offline-first
 
