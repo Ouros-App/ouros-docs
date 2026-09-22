@@ -53,12 +53,13 @@ ms-auth-service-internal
 ms-spring-api
 ms-ai-server
 ms-ai-server-debug
+ms-ai-server-mcp-exchange
 ms-mcp-server-ouros-knowledge
 ms-mcp-server-ouros-knowledge-codemode
 ms-telemetry-dashboard-service
 ```
 
-O `ouros-mobile` é public client com PKCE e recebe audiences para Spring, AI Server, Telemetry e para a delegação interna do Knowledge MCP. O `ms-auth-service-broker` permanece como compatibilidade legada.
+O `ouros-mobile` é public client com PKCE e recebe audiences para Spring, AI Server, Telemetry e `ms-ai-server-mcp-exchange`. O client confidencial `ms-ai-server-mcp-exchange` executa Standard Token Exchange v2 e recebe como target `ms-mcp-server-ouros-knowledge`. O JWT do Android não possui a audience do MCP. O `ms-auth-service-broker` permanece como compatibilidade legada.
 
 ### `microservice`
 
@@ -75,6 +76,10 @@ Public client com Authorization Code + PKCE S256, redirect URIs e web origins ex
 ### `service`
 
 Confidential client com service account e Client Credentials.
+
+### `token-exchange`
+
+Client confidencial backend-only para Standard Token Exchange v2. No fluxo atual, `ms-ai-server-mcp-exchange` troca um subject token elegível por um JWT downscoped para o Knowledge MCP.
 
 ### `password-grant`
 
