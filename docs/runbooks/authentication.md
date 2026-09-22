@@ -110,16 +110,30 @@ No Telemetry, as rotas de dashboard atualmente exigem `admin`. Um usuário mobil
 
 ## Midas autentica no AI Server, mas tools somem/falham
 
-O AI Server encaminha o mesmo access token ao Knowledge MCP.
+O AI Server não encaminha o JWT mobile diretamente ao Knowledge MCP.
 
-Cheque se o token contém simultaneamente:
+Fluxo esperado:
 
 ```text
-ms-ai-server
-ms-mcp-server-ouros-knowledge
+JWT do usuário
+  aud=ms-ai-server
+  aud=ms-ai-server-mcp-exchange
+        ↓
+AI Server
+        ↓ Standard Token Exchange v2
+JWT delegado
+  aud=ms-mcp-server-ouros-knowledge
+  azp=ms-ai-server-mcp-exchange
+        ↓
+Knowledge MCP
 ```
 
-Depois confirme issuer/JWKS no MCP.
+Cheque:
+
+- se o JWT do usuário contém `ms-ai-server` e `ms-ai-server-mcp-exchange`;
+- se o client confidencial `ms-ai-server-mcp-exchange` está configurado no AI Server;
+- se o exchange retorna token delegado;
+- no MCP, issuer/JWKS, `MCP_JWT_AUDIENCE` e `MCP_JWT_AUTHORIZED_PARTY`.
 
 ## Refresh falha
 
@@ -156,7 +170,7 @@ Cheque:
 - client secret atual;
 - Direct Access Grant;
 - token endpoint;
-- audience do AI Server e do Knowledge MCP.
+- audience do AI Server e do requester de exchange; o token do MCP é obtido depois, no backend.
 
 Não use esse fluxo no Android.
 
