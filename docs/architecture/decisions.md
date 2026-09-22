@@ -23,7 +23,7 @@ Estado observado:
 - Spring API, AI Server, Knowledge MCP e Telemetry validam JWT Keycloak por JWKS, issuer e audience;
 - Auth Service continua como bridge para credenciais legadas e não assina o JWT final;
 - o Android usa `ouros-mobile` com Authorization Code + PKCE;
-- o AI Server encaminha o mesmo JWT do usuário ao Knowledge MCP;
+- o AI Server usa o JWT do usuário como subject token em Standard Token Exchange v2 e encaminha ao Knowledge MCP apenas o JWT delegado;
 - Telemetry adiciona uma barreira de autorização: realm role `admin`.
 
 ## 2. Credenciais legadas continuam no banco de negócio
