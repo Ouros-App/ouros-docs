@@ -8,13 +8,13 @@ Esta página funciona como índice técnico. **Estado observado** descreve o que
 
 | Repositório | Stack principal | Estado observado | Papel |
 | --- | --- | --- | --- |
-| `ms-spring-api` | Java 17, Spring Boot 3.4, JPA, PostgreSQL | funcional / legado de auth em transição | API transacional do domínio Ouros. |
+| `ms-spring-api` | Java 17, Spring Boot 3.4, JPA, PostgreSQL | funcional / Keycloak resource server | API transacional do domínio Ouros. |
 | `ms-auth-service` | Python 3.12, FastAPI, PostgreSQL, Redis | funcional / integração Keycloak ativa | Credenciais legadas e bridge de identidade. |
 | `ouros-keycloak` | Keycloak 26.7.3, Java SPI, PostgreSQL | funcional / infraestrutura central | IdP OIDC, clients-as-code e User Storage federado. |
 | `ms-ai-server` | FastAPI, LangGraph, MongoDB, Groq/NIM | funcional | Backend conversacional do Midas. |
 | `ms-mcp-server-ouros-knowledge` | FastMCP, Qdrant, PostgreSQL, NVIDIA | funcional / contrato local com drift de README | Conhecimento, contexto MIDAS e importação controlada. |
 | `ms-mcp-server-ouros-knowledge-codemode` | FastMCP, Qdrant, PostgreSQL | experimental | Fork para testar arquitetura Code Mode. |
-| `ms-telemetry-dashboard-service` | FastAPI, Databricks, Chart.js | funcional / auth ainda por Bearer estático | Dashboards e renderização de gráficos. |
+| `ms-telemetry-dashboard-service` | FastAPI, Databricks, Chart.js | funcional / JWT Keycloak + admin | Dashboards e renderização de gráficos. |
 
 ## Dados
 

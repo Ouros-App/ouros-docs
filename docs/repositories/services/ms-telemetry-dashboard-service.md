@@ -64,10 +64,11 @@ Tipos como `counter` recebem tratamento específico. Para gráficos normais, o c
 
 Obrigatórios para readiness:
 
-- `API_BEARER_TOKEN`;
 - `DATABRICKS_HOST`;
 - `DATABRICKS_CLIENT_ID`;
-- `DATABRICKS_CLIENT_SECRET`.
+- `DATABRICKS_CLIENT_SECRET`;
+- configuração Keycloak completa (issuer + audience);
+- `KEYCLOAK_REQUIRED_ROLE` válida.
 
 Outros:
 
@@ -80,9 +81,11 @@ Outros:
 
 `DATABRICKS_HOST` e token URL precisam ser HTTPS. `CORS_ORIGINS` rejeita `*`.
 
-## Autenticação futura
+## Autenticação
 
-O repo ainda usa Bearer estático nas rotas de negócio. A infraestrutura Keycloak já possui declaração IaC para este microserviço, portanto ele é um candidato natural para validação de JWT/audience do Keycloak.
+As rotas de negócio validam JWT RS256 do Keycloak por issuer/JWKS e audience `ms-telemetry-dashboard-service`. Depois da autenticação, o serviço exige a realm role `admin`.
+
+O token mobile já possui a audience necessária, mas produtores/funcionários continuam recebendo 403 até existir autorização user-scoped para dashboards.
 
 ## Observabilidade
 

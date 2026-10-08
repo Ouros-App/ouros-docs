@@ -1,48 +1,93 @@
 # Auth Service: referência de API
 
-Contrato atual de `ms-auth-service`.
+Contrato atual do `ms-auth-service`.
 
-## Base pública
+## Papel
 
-Produção referenciada no ecossistema:
+O serviço faz a ponte entre credenciais legadas no PostgreSQL e o Keycloak.
+
+Ele:
+
+- verifica bcrypt;
+- resolve identidade por email/ID;
+- aplica rate limit;
+- atende o User Storage do Keycloak;
+- funciona como broker first-party de token;
+- **não assina o access token final**.
+
+Produção:
 
 ```text
 https://ms-auth-service.discloud.app
 ```
 
-## Meta
+## Rotas públicas
 
-### GET `/`
+| Método | Rota | Auth | Uso |
+| --- | --- | --- | --- |
+| GET | `/` | nenhuma | metadata mínima |
+| GET | `/health` | nenhuma | liveness |
+| GET | `/ready` | nenhuma | PostgreSQL + rate limiter |
+| POST | `/v1/auth/credentials/verify` | nenhuma | verifica credencial |
+| POST | `/v1/auth/token` | nenhuma | login + tokens Keycloak |
 
-Disponibilidade básica.
+As duas rotas de credencial são protegidas por rate limiting.
 
-### GET `/health`
-
-Liveness.
-
-Resposta:
-
-```json
-{"status":"ok"}
-```
-
-### GET `/ready`
-
-Valida PostgreSQL e Redis quando configurado.
-
-Sucesso:
-
-```json
-{"status":"ready"}
-```
-
-Falha de dependência: **503**.
-
-## POST `/v1/auth/credentials/verify`
-
-Verifica credencial sem emitir token.
+## `POST /v1/auth/token`
 
 Request:
+
+```json
+{
+  "email": "usuario@example.com",
+  "password": "<senha>"
+}
+```
+
+Regras:
+
+- email: 3..255, normalizado para lowercase;
+- password: 1..128;
+- password é `SecretStr` e não deve aparecer em log.
+
+Fluxo:
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant A as Auth Service
+    participant K as Keycloak
+    participant DB as PostgreSQL
+
+    C->>A: email + password
+    A->>A: rate limit
+    A->>K: password grant via ms-auth-service-broker
+    K->>A: User Storage callbacks
+    A->>DB: lookup + bcrypt
+    DB-->>A: identity
+    A-->>K: valid
+    K-->>A: tokens (aud ms-spring-api)
+    A-->>C: tokens sem reemitir
+```
+
+Response:
+
+```json
+{
+  "access_token": "<access-token>",
+  "expires_in": 300,
+  "refresh_expires_in": 1800,
+  "refresh_token": "<refresh-token>",
+  "token_type": "Bearer",
+  "scope": "openid ouros-identity"
+}
+```
+
+Os TTLs são definidos pelo Keycloak; não hardcode os números do exemplo no cliente.
+
+## `POST /v1/auth/credentials/verify`
+
+Usado quando só é necessário validar a credencial.
 
 ```json
 {
@@ -52,22 +97,13 @@ Request:
 }
 ```
 
-`account_type` é opcional.
-
-Tipos:
+`account_type` é opcional:
 
 ```text
 farm_owner
 company_employee
 admin
 ```
-
-Regras:
-
-- email 3..255;
-- password é tratado como `SecretStr`;
-- password passa por limite de tamanho no validator;
-- email é normalizado/validado pelo schema.
 
 Sucesso:
 
@@ -87,50 +123,50 @@ Sucesso:
 }
 ```
 
-Campos contextuais podem ser nulos.
+Sem `account_type`, o serviço procura candidatos compatíveis; identidade ambígua pode resultar em 409.
 
-Sem `account_type`, o serviço busca candidatos suportados. Identidade ambígua pode resultar em **409**.
+## Health e readiness
 
-Credencial inválida é tratada como **401** no contrato público.
-
-Rate limit pode gerar **429**.
-
-## POST `/v1/auth/token`
-
-Login first-party que devolve tokens emitidos pelo Keycloak.
-
-Request:
+`GET /health`:
 
 ```json
-{
-  "email": "usuario@example.com",
-  "password": "<senha>"
-}
+{"status":"ok"}
 ```
 
-Response:
+`GET /ready`:
 
 ```json
-{
-  "access_token": "<access-token>",
-  "expires_in": 300,
-  "refresh_expires_in": 1800,
-  "refresh_token": "<refresh-token>",
-  "token_type": "Bearer",
-  "scope": "openid ouros-identity"
-}
+{"status":"ready"}
 ```
 
-Os tempos acima são apenas forma de exemplo. Use os valores reais retornados pelo Keycloak.
+A readiness só retorna sucesso quando:
 
-Regras do schema:
+- PostgreSQL responde;
+- rate limiter/Redis responde no modo configurado.
 
-- `access_token`: não vazio;
-- `expires_in > 0`;
-- `refresh_expires_in >= 0` quando presente;
-- `token_type`: literalmente `Bearer`.
+Falha: 503.
 
-## Rotas internas
+## Rate limit
+
+Defaults observados:
+
+```text
+IP burst:                 3 / 10 s
+IP:                       5 / min
+IP:                      20 / 15 min
+email:                    5 / 15 min
+```
+
+Ao exceder:
+
+```http
+HTTP/1.1 429 Too Many Requests
+Retry-After: <segundos>
+```
+
+O cliente deve respeitar `Retry-After`.
+
+## API interna do User Storage
 
 Prefixo:
 
@@ -138,80 +174,52 @@ Prefixo:
 /internal/v1
 ```
 
-Não aparecem no schema OpenAPI público.
+Essas rotas:
 
-Todas exigem service JWT válido do fluxo Keycloak User Storage.
+- não aparecem no OpenAPI público;
+- exigem JWT de serviço Keycloak;
+- validam issuer/audience/client;
+- são destinadas ao `keycloak-user-storage`.
 
-### GET `/internal/v1/identities/by-email?email=...`
+### Rotas
 
-Lookup por email.
+| Método | Rota | Uso |
+| --- | --- | --- |
+| GET | `/internal/v1/identities/by-email?email=...` | lookup por email |
+| GET | `/internal/v1/identities/{account_type}/{database_id}` | resolve federated ID |
+| POST | `/internal/v1/credentials/verify` | valida password do usuário |
 
-Query:
+Sem identidade: 404.
 
-- email 3..255.
+Credencial humana inválida na rota interna: **403**. O 401 fica reservado para falha do service token.
 
-Não encontrado: **404**.
+## JWT de serviço
 
-### GET `/internal/v1/identities/{account_type}/{database_id}`
+Contrato esperado:
 
-Lookup por identidade federada.
+- issuer Keycloak;
+- audience `ms-auth-service-internal`;
+- client autorizado `keycloak-user-storage`.
 
-Não encontrado: **404**.
+Não reutilize token de usuário para chamar a API interna.
 
-### POST `/internal/v1/credentials/verify`
+## Status relevantes
 
-Validação de password para o provider.
-
-Senha humana inválida: **403**.
-
-Falha de autenticação do próprio service token: **401**.
-
-Essa distinção é intencional.
-
-## Identidade retornada
-
-```text
-id
-email
-account_type
-realm_role
-name?
-farm_id?
-enterprise_id?
-first_access?
-```
-
-O campo `id` é o ID legado de banco, não o `sub` Keycloak.
-
-## Rate limit
-
-Defaults observados:
-
-```text
-IP burst:        3 / 10 s
-IP:              5 / min
-IP:             20 / 15 min
-email:           5 / 15 min
-```
-
-Redis torna o estado compartilhado entre réplicas.
-
-## Segurança para clientes
-
-- nunca logar request de login;
-- nunca persistir password;
-- não mostrar refresh token em console;
-- tratar 429 respeitando `Retry-After`;
-- não usar `credentials/verify` como substituto de sessão;
-- usar o access token Keycloak para resource servers que já migraram.
-
-## Separação de erros
-
-| Status | Interpretação típica |
-| --- | --- |
-| 401 | autenticação pública inválida ou service token inválido |
-| 403 | credencial humana inválida em rota interna/autorização |
+| Status | Significado |
+| ---: | --- |
+| 200 | operação válida |
+| 401 | login público inválido ou service token inválido |
+| 403 | password humano inválido na rota interna |
 | 404 | identidade interna não encontrada |
-| 409 | identidade pública ambígua |
+| 409 | lookup público ambíguo |
+| 422 | shape/email/password inválidos |
 | 429 | rate limit |
-| 503 | readiness/dependência indisponível |
+| 503 | dependência/broker indisponível |
+
+## Uso recomendado
+
+- login de cliente first-party: `/v1/auth/token`;
+- não use `credentials/verify` como “sessão”;
+- não chame `/internal/v1` fora do fluxo Keycloak;
+- nunca persista password;
+- proteja refresh token como credencial.
