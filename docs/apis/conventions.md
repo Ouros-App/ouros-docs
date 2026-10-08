@@ -20,9 +20,9 @@ O resource server valida:
 - `aud=ms-spring-api`;
 - role reconhecida.
 
-### Bearer estático
+### Bearer JWT Keycloak
 
-Usado atualmente por Telemetry e Knowledge MCP.
+Spring, AI Server, Knowledge MCP e Telemetry recebem JWT Keycloak no header `Authorization: Bearer <jwt>`. O esquema HTTP é o mesmo, mas cada serviço valida uma audience diferente; Telemetry também exige role `admin`.
 
 O header é igual, mas **o token não é um JWT Keycloak**.
 

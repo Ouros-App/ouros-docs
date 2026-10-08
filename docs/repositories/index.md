@@ -14,7 +14,7 @@ Esta página funciona como índice técnico. **Estado observado** descreve o que
 | `ms-ai-server` | FastAPI, LangGraph, MongoDB, Groq/NIM | funcional | Backend conversacional do Midas. |
 | `ms-mcp-server-ouros-knowledge` | FastMCP, Qdrant, PostgreSQL, NVIDIA | funcional / contrato local com drift de README | Conhecimento, contexto MIDAS e importação controlada. |
 | `ms-mcp-server-ouros-knowledge-codemode` | FastMCP, Qdrant, PostgreSQL | experimental | Fork para testar arquitetura Code Mode. |
-| `ms-telemetry-dashboard-service` | FastAPI, Databricks, Chart.js | funcional / auth ainda por Bearer estático | Dashboards e renderização de gráficos. |
+| `ms-telemetry-dashboard-service` | FastAPI, Databricks, Chart.js | funcional / JWT Keycloak + admin | Dashboards e renderização de gráficos. |
 
 ## Dados
 

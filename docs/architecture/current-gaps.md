@@ -4,35 +4,27 @@ Este inventário registra diferenças observadas entre o estado atual e uma plat
 
 ## Identidade em transição
 
-Hoje coexistem:
+Hoje o caminho mobile está convergido em Keycloak:
 
-- Keycloak como issuer central;
-- Auth Service como bridge para credenciais legadas;
-- Spring API já migrado para JWT Keycloak/JWKS/audience;
-- Bearer estático no Telemetry e Knowledge MCP;
-- Bearer compartilhado/JWT HS256 local no AI Server.
+- Keycloak é o issuer central;
+- Auth Service continua como bridge para credenciais legadas;
+- Spring API, AI Server, Knowledge MCP e Telemetry validam JWT RS256/JWKS/audience;
+- o client `ouros-mobile` recebe um token multi-audience;
+- o broker first-party legado ainda existe durante o rollout.
 
 Implicação:
 
-- clientes não podem assumir que o mesmo token é aceito por todos os serviços;
-- novos resource servers devem seguir o padrão Keycloak do Spring;
-- migrações de Telemetry/AI/MCP precisam preservar compatibilidade durante o rollout.
+- o Android pode autenticar uma vez e reutilizar o access token nos três serviços mobile-facing;
+- o token inclui `ms-ai-server-mcp-exchange`, que o torna elegível para uma troca backend-only; a audience do Knowledge MCP não vai para o Android;
+- refresh token continua exclusivo do Keycloak.
 
-## AI Server e Knowledge MCP têm modos de auth incompatíveis
+## Telemetry ainda não é user-scoped para mobile
 
-O AI Server contém código para gerar JWT HS256 curto por usuário para o MCP quando `MCP_JWT_SECRET` é usado.
+O Telemetry já autentica JWT Keycloak, mas as rotas de dashboard exigem realm role `admin`.
 
-O Knowledge MCP atual usa `StaticTokenVerifier` e aceita somente igualdade exata com `MCP_AUTH_TOKEN`.
+Isso é deliberado enquanto o serviço usa dashboards/credenciais Databricks globais. Remover a role para “fazer o mobile funcionar” poderia ampliar acesso a dados.
 
-Portanto, o modo interoperável hoje é:
-
-```text
-AI Server MCP_ACCESS_TOKEN
-        ==
-Knowledge MCP MCP_AUTH_TOKEN
-```
-
-O caminho JWT per-user exige implementar um verifier JWT compatível no MCP antes de ser habilitado.
+A abertura para `farm_owner` e `company_employee` exige ownership/escopo de dashboard no backend.
 
 ## Web ainda é scaffold
 
