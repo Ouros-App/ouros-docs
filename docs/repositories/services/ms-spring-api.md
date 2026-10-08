@@ -1,209 +1,173 @@
 # ms-spring-api
 
-**Stack:** Java 17, Spring Boot 3.4, Gradle, Spring Security, JPA/Hibernate, PostgreSQL, JWT, springdoc OpenAPI.
+**Stack:** Java 17, Spring Boot 3.4, Gradle, OAuth2 Resource Server, JPA/Hibernate, PostgreSQL, springdoc OpenAPI.
 
 **Repo:** [Ouros-App/ms-spring-api](https://github.com/Ouros-App/ms-spring-api)
 
 ## Responsabilidade
 
-API transacional principal do domínio Ouros. O código atual já implementa recursos de endereço, empresa, fazenda, proprietário, funcionário, lotes, registros de água e energia, além de login JWT legado.
+!!! warning "README do repo está defasado"
+    O README da `main` ainda descreve apenas `/` e `/health` e afirma que não existem CRUD/auth implementados. Esta página segue o código executável atual, que já possui CRUD completo e OAuth2 Resource Server Keycloak.
 
-!!! warning "README local defasado"
-    O README da `main` ainda descreve a API como um esqueleto com apenas `/` e `/health`. O código atual possui dezenas de operações CRUD e autenticação. Esta página segue os controllers e configurações reais.
+API transacional principal do domínio Ouros:
 
-## Arquitetura interna
+- endereços;
+- empresas;
+- fazendas;
+- produtores;
+- funcionários;
+- lotes;
+- água;
+- energia.
+
+## Arquitetura
 
 ```text
+HTTP / JWT Keycloak
+      ↓
 Controller
-   ↓
-Service
-   ↓
-Repository (Spring Data JPA)
-   ↓
-Entity
-   ↓
+      ↓
+Service (regra + ownership)
+      ↓
+Repository / JPA
+      ↓
 PostgreSQL
 ```
 
-Pacotes relevantes:
+## Segurança atual
 
-- `controller/`: contrato HTTP;
-- `service/`: regras de negócio e autorização contextual;
-- `repository/`: acesso JPA;
-- `entity/`: mapeamento das tabelas;
-- `dto/`: payloads de entrada/saída;
-- `security/`: JWT, principal autenticado e filtro;
-- `config/`: Security, OpenAPI, Infisical e tratamento global de erros.
+A API já está migrada para **Keycloak**.
 
-## Segurança
+`SecurityConfig` configura:
 
-A API é stateless. CSRF fica desativado e o token é enviado por `Authorization: Bearer <jwt>`.
+- stateless session;
+- OAuth2 Resource Server;
+- JWKS;
+- issuer;
+- audience `ms-spring-api`;
+- converter de roles/claims;
+- CORS por allowlist.
 
 Rotas públicas:
 
-- `GET /`;
-- `GET /health`;
-- `POST /adms/login`;
-- `POST /company-employees/login`;
-- `POST /farm-owners/login`;
-- `/v3/api-docs/**`;
-- `/swagger-ui/**`.
+```text
+/
+ /health
+/error
+/v3/api-docs/**
+/swagger-ui/**
+```
 
-Todo o restante exige autenticação no `SecurityFilterChain`.
+Não existem mais endpoints locais de login na `main` atual.
 
-O CORS vem de `CORS_ALLOWED_ORIGINS`; sem origens configuradas, nenhuma origem externa é liberada.
+Fluxo first-party:
 
-## Endpoints
+```text
+cliente
+  ↓ POST /v1/auth/token
+ms-auth-service
+  ↓
+Keycloak
+  ↓ JWT aud=ms-spring-api
+cliente
+  ↓ Authorization: Bearer
+ms-spring-api
+```
 
-### Meta e login
+## Principal autenticado
 
-| Método | Rota | Uso |
-| --- | --- | --- |
-| GET | `/` | Disponibilidade básica. |
-| GET | `/health` | Health check. |
-| POST | `/adms/login` | Login de administrador. |
-| POST | `/company-employees/login` | Login de funcionário de empresa. |
-| POST | `/farm-owners/login` | Login de proprietário de fazenda. |
+`KeycloakJwtAuthenticationConverter` resolve:
 
-### Endereços
+- `sub` → Keycloak ID;
+- `database_id` → ID local, quando disponível;
+- email → fallback de lookup local;
+- realm/client/simple roles → authorities Spring.
 
-| Método | Rota |
-| --- | --- |
-| POST | `/addresses` |
-| GET | `/addresses/{id}` |
-| PATCH | `/addresses/{id}` |
+Roles de negócio:
 
-### Empresas
+```text
+ADM
+COMPANY_EMPLOYEE
+FARM_OWNER
+```
 
-| Método | Rota |
-| --- | --- |
-| POST | `/enterprises` |
-| GET | `/enterprises` |
-| GET | `/enterprises/{id}` |
-| PATCH | `/enterprises/{id}` |
+As regras finas de acesso ficam no service layer.
 
-### Fazendas
+## API
 
-| Método | Rota |
-| --- | --- |
-| POST | `/farms` |
-| GET | `/farms` |
-| GET | `/farms/{id}` |
-| PATCH | `/farms/{id}` |
-| DELETE | `/farms/{id}` |
+A referência detalhada, incluindo matriz de autorização e payloads, está em [Spring API](../../apis/spring-api-reference.md).
 
-`GET /farms` usa o `UserPrincipal` autenticado para limitar a visão conforme o usuário.
+OpenAPI:
 
-### Proprietários
+- `/v3/api-docs`;
+- `/swagger-ui/index.html`.
 
-| Método | Rota |
-| --- | --- |
-| POST | `/farm-owners` |
-| GET | `/farm-owners/me` |
-| GET | `/farm-owners` |
-| GET | `/farm-owners/{id}` |
-| PATCH | `/farm-owners/{id}` |
-| DELETE | `/farm-owners/{id}` |
+## Banco
 
-### Funcionários de empresa
+`spring.jpa.hibernate.ddl-auto=none`.
 
-| Método | Rota |
-| --- | --- |
-| POST | `/company-employees` |
-| GET | `/company-employees/me` |
-| GET | `/company-employees/{id}` |
-| PATCH | `/company-employees/{id}` |
-| DELETE | `/company-employees/{id}` |
+Schema/migrations pertencem a `postgres-segundo-prod-database`, não ao Hibernate.
 
-### Lotes
+## Configuração principal
 
-| Método | Rota |
-| --- | --- |
-| POST | `/lots` |
-| GET | `/lots` |
-| GET | `/lots/{id}` |
-| PATCH | `/lots/{id}` |
-| DELETE | `/lots/{id}` |
+```text
+SERVER_PORT
+KEYCLOAK_ISSUER_URL
+KEYCLOAK_JWK_SET_URL
+KEYCLOAK_AUDIENCE=ms-spring-api
+KEYCLOAK_CLIENT_ID=ms-spring-api
+CORS_ALLOWED_ORIGINS
+```
 
-### Água
+Além do datasource PostgreSQL e bootstrap Infisical conforme o ambiente.
 
-| Método | Rota |
-| --- | --- |
-| POST | `/water-registries` |
-| GET | `/water-registries` |
-| GET | `/water-registries/{id}` |
-| PATCH | `/water-registries/{id}` |
-| DELETE | `/water-registries/{id}` |
+## Erros
 
-### Energia
+`GlobalExceptionHandler` usa `ProblemDetail` para:
 
-| Método | Rota |
-| --- | --- |
-| POST | `/energy-registries` |
-| GET | `/energy-registries` |
-| GET | `/energy-registries/{id}` |
-| PATCH | `/energy-registries/{id}` |
-| DELETE | `/energy-registries/{id}` |
+- regras de negócio;
+- validação;
+- conflitos de integridade.
 
-## Banco e JPA
-
-`spring.jpa.hibernate.ddl-auto=none`. A API **não é dona da criação automática do schema**. Mudanças estruturais devem ser versionadas no repositório de banco.
-
-O datasource local pode ser configurado por `application-local.properties`. Em deploy, o projeto possui integração com Infisical para injetar secrets antes da inicialização.
-
-## Configuração
-
-Variáveis importantes:
-
-- `SERVER_PORT`, padrão 8080;
-- datasource PostgreSQL;
-- secret/configuração JWT;
-- `JWT_EXPIRATION_MS` / `APP_JWT_EXPIRATION_MS`;
-- `CORS_ALLOWED_ORIGINS`;
-- bootstrap do Infisical quando utilizado.
-
-## OpenAPI
-
-O projeto inclui `springdoc-openapi-starter-webmvc-ui`. Use:
-
-- `/swagger-ui/index.html`;
-- `/v3/api-docs`.
+Veja [Convenções de API](../../apis/conventions.md).
 
 ## Testes
 
-A suíte é extensa para o tamanho do serviço e cobre:
+Cobertura inclui:
 
-- controllers com MockMvc;
+- controllers/MockMvc;
 - services;
-- DTOs/entities;
-- JWT e filtro;
+- DTOs;
+- JPA;
+- audience validator;
+- converter Keycloak;
+- `UserPrincipal`;
 - OpenAPI;
 - Infisical;
-- tratamento global de exceções.
-
-Comandos:
+- tratamento de exceções.
 
 ```bash
 ./gradlew test
 ./gradlew clean build jacocoTestReport
 ```
 
-## Dependências externas
+## Dependências
 
-- PostgreSQL de produção/QA;
-- Infisical em ambientes configurados;
-- clientes mobile/web;
-- durante a migração de identidade, o `ms-auth-service`/Keycloak é o caminho novo e o login JWT deste serviço deve ser tratado como legado até a migração terminar.
+- PostgreSQL;
+- Keycloak/JWKS;
+- Auth Service indiretamente no fluxo de login;
+- Infisical quando configurado;
+- clientes web/mobile.
 
 ## Manutenção
 
-Ao adicionar um recurso:
+Ao adicionar endpoint:
 
-1. criar/alterar migration no repo de banco;
-2. atualizar Entity;
-3. Repository;
-4. DTOs;
-5. Service;
-6. Controller;
-7. testes;
-8. OpenAPI/documentação central.
+1. migration se schema mudar;
+2. Entity/Repository;
+3. DTO;
+4. Service com ownership;
+5. Controller;
+6. testes;
+7. OpenAPI;
+8. docs central.
