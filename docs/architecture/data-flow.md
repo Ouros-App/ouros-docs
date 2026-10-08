@@ -108,24 +108,29 @@ Separação importante:
 - `request_id` suporta idempotência;
 - conexão de importação é separada da conexão read-only.
 
-## Identidade legada → Keycloak
+## Identidade legada → Keycloak → Spring
 
 ```mermaid
 sequenceDiagram
     participant C as Client
+    participant A as ms-auth-service
     participant K as Keycloak
     participant SPI as User Storage SPI
-    participant A as ms-auth-service
     participant DB as PostgreSQL
+    participant S as ms-spring-api
 
-    C->>K: login/token flow
+    C->>A: POST /v1/auth/token
+    A->>K: password broker
     K->>SPI: resolve/validate user
     SPI->>A: lookup / verify com service JWT
     A->>DB: SELECT identidade + hash
     DB-->>A: dados
     A-->>SPI: identidade válida
     SPI-->>K: user attributes
-    K-->>C: JWT
+    K-->>A: JWT aud=ms-spring-api
+    A-->>C: access + refresh token
+    C->>S: Bearer access token
+    S->>K: valida assinatura via JWKS/cache
 ```
 
 O password hash não migra automaticamente para o banco interno do Keycloak.
