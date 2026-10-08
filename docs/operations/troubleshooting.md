@@ -11,15 +11,26 @@ Exemplos:
 
 ## 401
 
-Perguntas:
+Primeiro identifique **qual mecanismo aquele serviço usa**.
 
-1. token foi enviado?
-2. issuer correto?
-3. expirou?
-4. audience contém o serviço?
+### Spring API
+
+Cheque:
+
+1. Bearer foi enviado?
+2. issuer é o Keycloak correto?
+3. token expirou?
+4. `aud` contém `ms-spring-api`?
 5. assinatura/JWKS válidos?
-6. endpoint ainda usa JWT legado ou Keycloak?
-7. Bearer estático é esperado naquele serviço?
+6. token contém uma role reconhecida?
+
+### AI Server
+
+Cheque issuer, audience e disponibilidade do JWKS do Keycloak.
+
+### Telemetry / Knowledge MCP
+
+Ambos validam JWT Keycloak. Confirme a audience específica de cada serviço. No Telemetry, um JWT válido sem role `admin` resulta em 403, não 401.
 
 ## 403
 
@@ -44,15 +55,24 @@ Cheque OAuth, permissões do service principal, workspace e SQL Warehouse.
 
 ## Midas não usa dados pessoais
 
+O AI Server usa o JWT validado como `subject_token`, executa Standard Token Exchange v2 no Keycloak e encaminha ao Knowledge MCP apenas o token delegado.
+
 Cheque:
 
-- `MCP_URL`;
-- token/JWT MCP;
-- `MCP_RESOURCE_URL`;
-- identidade numérica;
+- `MCP_URL` e `MCP_RESOURCE_URL` no AI Server;
+- o JWT recebido do mobile contém `aud=ms-ai-server` e `aud=ms-ai-server-mcp-exchange`, mas **não** `aud=ms-mcp-server-ouros-knowledge`;
+- no AI Server, o client de exchange configurado é `ms-ai-server-mcp-exchange`;
+- a troca retorna um JWT com `aud=ms-mcp-server-ouros-knowledge` e `azp=ms-ai-server-mcp-exchange`;
+- no MCP, `MCP_JWT_ISSUER` aponta para o realm correto;
+- `MCP_JWT_AUDIENCE=ms-mcp-server-ouros-knowledge`;
+- `MCP_JWT_AUTHORIZED_PARTY=ms-ai-server-mcp-exchange`;
+- `MCP_JWKS_URL`, quando sobrescrito, aponta para o JWKS do mesmo issuer;
+- claims `database_id`, `account_type` e realm role coerente;
 - allowlist do agente;
 - `MIDAS_DATABASE_URL`;
-- ownership da farm.
+- ownership/escopo da farm.
+
+Se o AI Server aceita o token mas as tools falham, diferencie falha de **exchange** de 401 no MCP. Não reintroduza fallback que encaminhe o JWT mobile diretamente nem token estático paralelo.
 
 ## Midas responde sem IA
 

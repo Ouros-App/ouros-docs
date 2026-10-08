@@ -4,18 +4,27 @@ Este inventário registra diferenças observadas entre o estado atual e uma plat
 
 ## Identidade em transição
 
-Hoje coexistem:
+Hoje o caminho mobile está convergido em Keycloak:
 
-- Keycloak como issuer central novo;
-- Auth Service como bridge;
-- JWT/login legado no Spring API;
-- Bearer estático em serviços como Telemetry/MCP.
+- Keycloak é o issuer central;
+- Auth Service continua como bridge para credenciais legadas;
+- Spring API, AI Server, Knowledge MCP e Telemetry validam JWT RS256/JWKS/audience;
+- o client `ouros-mobile` recebe um token multi-audience;
+- o broker first-party legado ainda existe durante o rollout.
 
 Implicação:
 
-- clientes e APIs podem seguir contratos diferentes durante a migração;
-- rollout precisa ser compatível;
-- novos serviços não devem copiar o mecanismo legado por inércia.
+- o Android pode autenticar uma vez e reutilizar o access token nos três serviços mobile-facing;
+- o token inclui `ms-ai-server-mcp-exchange`, que o torna elegível para uma troca backend-only; a audience do Knowledge MCP não vai para o Android;
+- refresh token continua exclusivo do Keycloak.
+
+## Telemetry ainda não é user-scoped para mobile
+
+O Telemetry já autentica JWT Keycloak, mas as rotas de dashboard exigem realm role `admin`.
+
+Isso é deliberado enquanto o serviço usa dashboards/credenciais Databricks globais. Remover a role para “fazer o mobile funcionar” poderia ampliar acesso a dados.
+
+A abertura para `farm_owner` e `company_employee` exige ownership/escopo de dashboard no backend.
 
 ## Web ainda é scaffold
 

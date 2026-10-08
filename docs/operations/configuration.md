@@ -120,25 +120,27 @@ NVIDIA_NIM_BASE_URL=https://integrate.api.nvidia.com/v1
 ### Auth
 
 ```text
-AUTH_JWT_ISSUER
-AUTH_JWT_AUDIENCE
-AUTH_REQUIRE_USER_JWT=false
+AUTH_JWT_ISSUER=https://ouros-keycloak.discloud.app/realms/ouros
+AUTH_JWT_AUDIENCE=ms-ai-server
+AUTH_JWKS_URL=
 ```
 
-Quando `AUTH_REQUIRE_USER_JWT=true`, o serviço passa a exigir identidade JWT compatível com o `user_id` da requisição.
+`AUTH_JWKS_URL` é opcional; quando vazio, o serviço deriva `<issuer>/protocol/openid-connect/certs`.
 
 ### MCP
 
 ```text
 MCP_URL=https://ms-midas-mcp.discloud.app/mcp/
-MCP_JWT_ISSUER_URL=https://auth.ouros.local
 MCP_RESOURCE_URL=https://ms-midas-mcp.discloud.app/mcp/
-MCP_USER_TYPE=farm_owner
-MCP_JWT_TTL_SECONDS=300
+MCP_TOOLS_CACHE_TTL_SECONDS=300
+MCP_KEYCLOAK_TOKEN_EXCHANGE_URL=https://ouros-keycloak.discloud.app/realms/ouros/protocol/openid-connect/token
+MCP_KEYCLOAK_TOKEN_EXCHANGE_CLIENT_ID=ms-ai-server-mcp-exchange
+MCP_KEYCLOAK_TOKEN_EXCHANGE_CLIENT_SECRET=<valor-do-cofre>
+MCP_KEYCLOAK_TOKEN_EXCHANGE_AUDIENCE=ms-mcp-server-ouros-knowledge
+MCP_KEYCLOAK_TOKEN_EXCHANGE_TIMEOUT_SECONDS=8
 ```
 
-!!! warning
-    `https://auth.ouros.local` aparece como default/exemplo para issuer MCP no snapshot atual. Não assuma que é um endpoint público resolvível.
+O AI Server troca o JWT autenticado por um token delegado antes de chamar o Knowledge MCP. A credencial do client de exchange fica somente no backend e nunca é exposta ao mobile.
 
 ## Knowledge MCP
 
@@ -181,11 +183,14 @@ Não use a mesma role para leitura e escrita só para simplificar.
 ### MCP
 
 ```text
-MCP_AUTH_TOKEN              secret, >= 32 chars
 MCP_RESOURCE_URL=http://localhost:8000/mcp
+MCP_JWT_ISSUER=https://ouros-keycloak.discloud.app/realms/ouros
+MCP_JWT_AUDIENCE=ms-mcp-server-ouros-knowledge
+MCP_JWT_AUTHORIZED_PARTY=ms-ai-server-mcp-exchange
+MCP_JWKS_URL=
 ```
 
-Em deploy público, `MCP_RESOURCE_URL` deve refletir a URL pública real do resource server.
+`MCP_JWKS_URL` é opcional e, quando vazio, é derivado do issuer. `MCP_JWT_AUTHORIZED_PARTY` fixa o `azp` aceito e impede acesso direto com JWT de `ouros-mobile`. Em deploy público, `MCP_RESOURCE_URL` deve refletir a URL pública real do resource server.
 
 ## Telemetry Dashboard
 
@@ -218,10 +223,13 @@ Secrets exigidos em runtime:
 ```text
 DATABRICKS_CLIENT_ID
 DATABRICKS_CLIENT_SECRET
-API_BEARER_TOKEN
+KEYCLOAK_ISSUER_URL
+KEYCLOAK_AUDIENCE
+KEYCLOAK_JWKS_URL
+KEYCLOAK_REQUIRED_ROLE
 ```
 
-Esses valores podem ser carregados do Infisical e por isso não precisam aparecer no `.env.example`.
+Credenciais Databricks podem ser carregadas do Infisical. A configuração Keycloak deve permanecer coerente com o resource server `ms-telemetry-dashboard-service`.
 
 ### CORS
 
@@ -274,25 +282,20 @@ O repo orienta preferir `KCRAW_DB_PASSWORD` para preservar caracteres como `$` l
 
 ## Spring API
 
-`.env.example` atual:
+Configuração de runtime observada:
 
 ```text
-SERVER_PORT=8000
-DB_URL=jdbc:postgresql://<HOST>:<PORT>/<DATABASE>?sslmode=require
-DB_USERNAME=<USERNAME>
-DB_PASSWORD=<PASSWORD>
+SERVER_PORT=8080
+KEYCLOAK_ISSUER_URL=https://ouros-keycloak.discloud.app/realms/ouros
+KEYCLOAK_JWK_SET_URL=https://ouros-keycloak.discloud.app/realms/ouros/protocol/openid-connect/certs
+KEYCLOAK_AUDIENCE=ms-spring-api
+KEYCLOAK_CLIENT_ID=ms-spring-api
+CORS_ALLOWED_ORIGINS=
 ```
 
-Também existem configurações de:
+Além disso, o serviço precisa do datasource PostgreSQL e pode receber secrets pelo Infisical.
 
-- JWT legado;
-- CORS;
-- Infisical;
-- JPA/Hibernate;
-- OpenAPI.
-
-!!! note
-    O `discloud.config` atual inicia o JAR com `--server.port=8080`. Portanto, diferencie porta de desenvolvimento do runtime de deploy.
+Não há mais `app.jwt.secret`/emissor JWT local no contrato atual: o Spring valida tokens do Keycloak por JWKS.
 
 ## GitHub Manager
 

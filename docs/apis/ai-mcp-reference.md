@@ -1,6 +1,42 @@
 # Midas e Knowledge MCP: referência de contrato
 
+Esta página separa duas interfaces diferentes:
+
+- **AI Server**: API consumida por clientes;
+- **Knowledge MCP**: protocolo/tool server consumido por agentes autorizados.
+
 ## AI Server
+
+### Rotas
+
+| Método | Rota | Auth |
+| --- | --- | --- |
+| GET | `/` | obrigatório |
+| GET | `/health` | obrigatório |
+| GET | `/metrics` | obrigatório |
+| POST | `/v1/chat` | obrigatório |
+| GET | `/v1/chat/{thread_id}/history` | obrigatório |
+
+!!! note
+    O router aplica `get_current_principal` globalmente. Até `/health` exige Bearer no código atual.
+
+### Autenticação
+
+O deployment atual aceita somente access token RS256 emitido pelo Keycloak.
+
+```text
+issuer   = https://ouros-keycloak.discloud.app/realms/ouros
+audience = ms-ai-server
+JWKS     = <issuer>/protocol/openid-connect/certs
+```
+
+O AI Server valida assinatura, issuer, audience, timestamps e identidade de negócio. O principal exige `sub`, `database_id`, `account_type` e a realm role correspondente.
+
+Se o payload/query enviar `user_id` por compatibilidade e ele não coincidir com o `database_id` assinado:
+
+- 403.
+
+`AUTH_BEARER_TOKEN`, JWT HS256 local e `AUTH_REQUIRE_USER_JWT` pertencem a versões antigas do contrato e não são modos aceitos pelo deployment atual.
 
 ### POST `/v1/chat`
 
@@ -8,42 +44,39 @@ Request:
 
 ```json
 {
-  "user_id": "42",
-  "message": "Como está meu consumo de água?",
+  "message": "Como está meu consumo de energia?",
   "thread_id": "opcional"
 }
 ```
 
-Schema:
+Regras:
 
 | Campo | Regra |
 | --- | --- |
-| `user_id` | string 1..128 |
-| `message` | string 1..8000 |
-| `thread_id` | string 1..128; UUID gerado quando omitido |
+| user_id | opcional, 1..128; se enviado, precisa coincidir com o JWT |
+| message | 1..8000 |
+| thread_id | 1..128; UUID gerado quando omitido |
 
 Response:
 
 ```json
 {
-  "thread_id": "uuid-ou-id",
+  "thread_id": "thread-1",
   "message": "Resposta final",
   "agents": ["sustainability"],
   "tools": ["get_user_context", "get_user_farm_data"]
 }
 ```
 
-`agents` e `tools` dão rastreabilidade funcional ao caminho usado.
+### Histórico
 
-### GET `/v1/chat/{thread_id}/history`
+```http
+GET /v1/chat/{thread_id}/history?limit=20&before=<cursor>
+```
 
-Query params:
-
-| Param | Regra |
-| --- | --- |
-| `user_id` | obrigatório, string 1..128 |
-| `limit` | 1..100, default 20 |
-| `before` | cursor opcional, 1..32 |
+- `limit`: 1..100;
+- `before`: cursor opcional;
+- thread precisa pertencer ao usuário.
 
 Response:
 
@@ -58,61 +91,79 @@ Response:
 }
 ```
 
-Roles permitidas no schema de histórico:
+### Status e falhas do AI Server
 
-```text
-user
-assistant
+| Status | Situação típica |
+| ---: | --- |
+| 200 | chat concluído **ou** input bloqueado pelo guardrail com resposta segura |
+| 401 | JWT Keycloak ausente, inválido, expirado ou com issuer/audience incorreto |
+| 403 | user_id de compatibilidade não coincide com o JWT; thread pertence a outro usuário |
+| 404 | histórico solicitado para thread inexistente |
+| 422 | schema inválido ou cursor `before` inválido |
+| 503 | budget total do provider/LLM excedeu timeout |
+
+Guardrail bloqueado **não é erro HTTP**. Exemplo de resposta 200:
+
+```json
+{
+  "thread_id": "thread-1",
+  "message": "<mensagem-segura-do-guardrail>",
+  "agents": ["guardrail"],
+  "tools": []
+}
 ```
 
-Thread ownership é validado no backend.
+Isso permite ao cliente distinguir bloqueio funcional de indisponibilidade técnica.
 
-### GET `/metrics`
+### Cursor de histórico
 
-Prometheus, autenticado.
+`before` é uma posição inteira serializada como string.
 
-### GET `/health`
+Valor não numérico, negativo ou maior que a quantidade de mensagens visíveis retorna 422:
 
-Liveness do AI Server.
+```json
+{"detail":"O cursor before e invalido."}
+```
 
 ## Knowledge MCP
 
-Transporte:
+### Transporte
 
 ```text
 /mcp/
 ```
 
-As tools abaixo refletem a assinatura atual de `app/mcp_server.py`.
+Streamable HTTP, stateless.
 
-### `search_knowledge(query, limit)`
+### Auth real
 
-Args:
+O Knowledge MCP usa `KeycloakTokenVerifier`, mas não aceita o access token bruto do usuário. O AI Server primeiro executa Standard Token Exchange v2 e envia o JWT delegado resultante.
 
-- `query: str`;
-- `limit: int`, default `SEARCH_TOP_K`, permitido 1..20.
+```text
+issuer   = https://ouros-keycloak.discloud.app/realms/ouros
+audience = ms-mcp-server-ouros-knowledge
+JWKS     = <issuer>/protocol/openid-connect/certs
+```
 
-Uso:
+```http
+Authorization: Bearer <keycloak_access_token>
+```
 
-- gera embedding;
-- busca Qdrant;
-- retorna matches de conhecimento.
+O verifier exige JWT válido, `aud=ms-mcp-server-ouros-knowledge`, `azp=ms-ai-server-mcp-exchange` e identidade de negócio assinada: `database_id`, `account_type` e a realm role correspondente. Um JWT do `ouros-mobile` é rejeitado diretamente.
 
-### `qdrant_status()`
+### Tools
 
-Sem argumentos.
+| Tool | Parâmetros principais | Função |
+| --- | --- | --- |
+| `search_knowledge` | query, limit 1..20 | busca Qdrant com embeddings |
+| `qdrant_status` | nenhum | diagnóstico Qdrant |
+| `postgres_status` | nenhum | diagnóstico PostgreSQL read-only |
+| `get_user_context` | user_type, user_id | perfil + farms autorizadas |
+| `get_user_farm_data` | user_type, user_id, limit 1..100 | dados bounded por usuário |
+| `prepare_resource_import` | filename, content_type, encoded_file | converte/extrai preview, sem write |
+| `import_user_resource_records` | identidade, request_id, source, records | write controlado no PostgreSQL |
 
-Diagnóstico da coleção/config Qdrant.
-
-### `postgres_status()`
-
-Sem argumentos.
-
-Diagnóstico da conexão MIDAS read-only.
-
-### `get_user_context(user_type, user_id)`
-
-`user_type`:
+Tipos de usuário:
 
 ```text
 farm_owner
@@ -120,53 +171,11 @@ company_employee
 admin
 ```
 
-`user_id` precisa ser positivo.
+Importação final aceita somente `farm_owner` no código atual.
 
-Retorna identidade/contexto e farms autorizadas.
+## Escopo aplicado pelo AI Server
 
-### `get_user_farm_data(user_type, user_id, limit=20)`
-
-`limit`: 1..100.
-
-Retorna grupos bounded de dados como farms, metas, consumos, lotes e dicas conforme o service atual.
-
-### `prepare_resource_import(filename, content_type, encoded_file)`
-
-Assinatura executável atual:
-
-```text
-filename: str
-content_type: str
-encoded_file: str
-```
-
-Responsabilidade:
-
-- decodificar arquivo;
-- converter PDF/XLSX para representação intermediária;
-- extrair preview estruturado via NIM;
-- **não gravar no PostgreSQL**.
-
-### `import_user_resource_records(...)`
-
-Assinatura executável atual:
-
-```text
-user_type
-user_id
-request_id
-source_type
-source_name
-records
-```
-
-O código atual **não expõe `confirmation` como argumento da tool**, apesar de documentação local histórica descrever confirmação.
-
-A escrita passa por função PostgreSQL controlada.
-
-## Autorização no AI Server
-
-Allowlist observada:
+Allowlist atual:
 
 | Agente | Tools |
 | --- | --- |
@@ -176,27 +185,53 @@ Allowlist observada:
 | support | search_knowledge, get_user_context |
 | fallback | search_knowledge |
 
-Tools de identidade são fechadas pelo backend no fluxo do AI Server.
+Para tools user-scoped, o AI Server vincula o `user_id` no backend e não o entrega livre ao modelo.
 
-## Importação segura
+## Delegação AI Server → MCP
+
+O AI Server mantém o JWT do usuário apenas como `subject_token` da troca. Para abrir a conexão MCP ele autentica o client confidencial `ms-ai-server-mcp-exchange` no token endpoint do Keycloak e solicita:
+
+```text
+grant_type = urn:ietf:params:oauth:grant-type:token-exchange
+audience   = ms-mcp-server-ouros-knowledge
+```
+
+O JWT mobile possui `aud=ms-ai-server-mcp-exchange` para ser elegível à troca, mas **não** possui a audience do MCP. O token delegado contém `aud=ms-mcp-server-ouros-knowledge` e `azp=ms-ai-server-mcp-exchange`.
+
+Não existe fallback para encaminhar o token mobile diretamente ao MCP.
+
+## Segurança do escopo
+
+Mesmo com autenticação centralizada:
+
+- identidade precisa ter tipo válido;
+- `database_id` precisa ser inteiro positivo;
+- o AI Server faz binding de identidade;
+- tools user-scoped não recebem user ID livre do modelo;
+- farm IDs passam por filtros/allowlist;
+- write usa função PostgreSQL controlada.
+
+O JWT autentica a identidade, mas ownership e autorização de dados continuam sendo aplicados pela camada de tools/aplicação.
+
+## Importação
 
 ```mermaid
 flowchart LR
     FILE[PDF/XLSX] --> PREP[prepare_resource_import]
     PREP --> PREVIEW[preview]
-    PREVIEW --> VALIDATE[cliente/agente valida]
-    VALIDATE --> IMPORT[import_user_resource_records]
-    IMPORT --> FN[função PostgreSQL]
+    PREVIEW --> REVIEW[revisão]
+    REVIEW --> IMPORT[import_user_resource_records]
+    IMPORT --> DBFN[midas.import_resource_records]
 ```
 
-`request_id` é UUID no service de banco e serve como base para idempotência/auditoria.
+`request_id` suporta idempotência/auditoria.
 
-## Regras para clientes/agentes
+## Erros
 
-- não inventar `user_id`;
-- não permitir que texto do prompt selecione identidade arbitrária;
-- limitar resultados;
-- tratar tool error separadamente de resposta vazia;
-- não mandar documento/base64 para logs;
-- não assumir que MCP health implica Qdrant/Postgres saudáveis;
-- usar status tools para diagnóstico.
+FastAPI/MCP e tools podem produzir erros de protocolo/tool. Diferencie:
+
+- falha de autenticação MCP;
+- input de tool inválido;
+- permission error de identidade/import;
+- Qdrant/PostgreSQL indisponíveis;
+- resposta vazia legítima.
