@@ -1,2 +1,2 @@
 mkdocs-material==9.7.7
-PyJWT[crypto]>=2.14,<3
+PyJWT[crypto]>=2.15.1,<3
